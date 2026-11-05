@@ -3,6 +3,11 @@
 Writes a monthly reminder email for each Gentoo package maintainer,
 listing:
 
+- for a proxy, such as proxy-maint@gentoo.org, when each maintainer they
+  are the proxy for last authored a commit, oldest first: those listed
+  with `proxied="yes"` on the packages where the proxy is listed with
+  `proxied="proxy"` or `proxied="maintainer-and-proxy"`, as GLEP 67 has
+  it
 - their packages with a newer upstream version, from packages.gentoo.org
   (which gets them from Repology)
 - their package versions that are ready for stabilization, from Gentoo's
@@ -56,8 +61,8 @@ instead, up to now if it is the current month.
 Unless `--no-pull` is given, the repository is first updated with
 `git fetch`, or with `git pull --ff-only` if it is not bare.
 `--collectors` limits the run to some of
-`outdated`, `stable_requests`, `github_prs`, `codeberg_prs`, `shortlog`,
-`qa`, `redundant`, `new_bugs` and `bugs`.
+`proxied`, `outdated`, `stable_requests`, `github_prs`, `codeberg_prs`,
+`shortlog`, `qa`, `redundant`, `new_bugs` and `bugs`.
 
 The pkgcheck reports of Gentoo's CI come from
 [qa-reports.gentoo.org](https://qa-reports.gentoo.org/), found by date

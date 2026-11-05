@@ -13,6 +13,7 @@ from .collectors.bugzilla import BugsCollector, NewBugsCollector
 from .collectors.codeberg_prs import CodebergPRsCollector
 from .collectors.github_prs import GitHubPRsCollector
 from .collectors.outdated import OutdatedCollector
+from .collectors.proxied import ProxiedMaintainersCollector, with_proxied
 from .collectors.qa import QACollector
 from .collectors.redundant import RedundantVersionsCollector
 from .collectors.shortlog import ShortlogCollector
@@ -26,6 +27,7 @@ log = logging.getLogger(__name__)
 
 # In the order their sections appear in the email
 COLLECTORS = {
+    "proxied": ProxiedMaintainersCollector,
     "outdated": OutdatedCollector,
     "stable_requests": StableRequestsCollector,
     "github_prs": GitHubPRsCollector,
@@ -189,9 +191,14 @@ async def async_main(args: argparse.Namespace) -> None:
         selected = list(maintainers.values())
 
     collectors = {name: COLLECTORS[name](config, args.month) for name in args.collectors}
+    # In the same pass over the history as everyone else's
+    people = selected
+    if proxied := collectors.get("proxied"):
+        proxied.maintainers = maintainers
+        people = with_proxied(selected, maintainers)
     try:
         await asyncio.gather(
-            asyncio.to_thread(find_last_commits, config.gentoo_repo, selected),
+            asyncio.to_thread(find_last_commits, config.gentoo_repo, people),
             *(c.setup() for c in collectors.values()),
         )
     except Exception as e:
