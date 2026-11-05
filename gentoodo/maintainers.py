@@ -15,6 +15,8 @@ class Maintainer:
     email: str
     person: bool = False
     packages: list[str] = field(default_factory=list)
+    # From the first <name> found for them
+    name: str = ""
     # Date and subject of the person's most recent commits
     last_authored: str | None = None
     last_committed: str | None = None
@@ -52,16 +54,25 @@ def _read_metadata(repo: Path) -> list[tuple[str, bytes]]:
         if entry.endswith(b"/metadata.xml") and entry.count(b"/") == 2:
             oid, path = entry.split(b" ", 1)
             entries.append((path.decode().removesuffix("/metadata.xml"), oid))
-    oids = b"".join(oid + b"\n" for _, oid in entries)
-    _fetch_missing(repo, oids)
+    blobs = read_blobs(repo, [oid for _, oid in entries])
+    return [(package, blobs[oid]) for package, oid in entries]
 
-    data = _git(repo, "cat-file", "--batch", input=oids)
-    result = []
+
+def read_blobs(repo: Path, oids: list[bytes]) -> dict[bytes, bytes]:
+    """Return the contents of each blob, fetching those a partial clone lacks
+    first."""
+    if not oids:
+        return {}
+    request = b"".join(oid + b"\n" for oid in oids)
+    _fetch_missing(repo, request)
+
+    data = _git(repo, "cat-file", "--batch", input=request)
+    result = {}
     pos = 0
-    for package, _ in entries:
+    for oid in oids:
         end = data.index(b"\n", pos)
         size = int(data[pos:end].split()[2])
-        result.append((package, data[end + 1:end + 1 + size]))
+        result[oid] = data[end + 1:end + 1 + size]
         pos = end + 1 + size + 1
     return result
 
@@ -83,6 +94,7 @@ def load_maintainers(repo: Path) -> dict[str, Maintainer]:
                 continue
             maintainer = maintainers.setdefault(email, Maintainer(email))
             maintainer.person |= element.get("type") == "person"
+            maintainer.name = maintainer.name or (element.findtext("name") or "").strip()
             if package not in maintainer.packages[-1:]:
                 maintainer.packages.append(package)
 
