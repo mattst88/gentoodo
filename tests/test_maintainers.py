@@ -86,3 +86,24 @@ def test_find_last_commits(tmp_path, git_env):
     assert project.last_committed is None
     assert mapped.last_authored == "2026-01-04T00:00:00+01:00 fourth"
 
+
+def test_load_maintainers_proxied(tmp_path, git_env):
+    subprocess.run(["git", "init", "-q", tmp_path], check=True)
+    add_package(tmp_path, "app-misc/foo", """
+        <maintainer type="person" proxied="yes"><email>someone@example.com</email></maintainer>
+        <maintainer type="project" proxied="proxy"><email>proxy-maint@gentoo.org</email></maintainer>""")
+    add_package(tmp_path, "app-misc/bar", """
+        <maintainer type="person" proxied="yes"><email>someone@example.com</email></maintainer>
+        <maintainer type="person" proxied="maintainer-and-proxy"><email>dev@gentoo.org</email></maintainer>
+        <maintainer type="person" proxied="no"><email>other@gentoo.org</email></maintainer>""")
+    commit(tmp_path, "add", "dev@gentoo.org", "dev@gentoo.org", "2026-01-01T00:00:00Z")
+
+    maintainers = load_maintainers(tmp_path)
+
+    assert maintainers["someone@example.com"].proxied
+    assert not maintainers["dev@gentoo.org"].proxied
+    assert maintainers["proxy-maint@gentoo.org"].proxied_maintainers == {
+        "someone@example.com": ["app-misc/foo"]}
+    assert maintainers["dev@gentoo.org"].proxied_maintainers == {
+        "someone@example.com": ["app-misc/bar"]}
+    assert not maintainers["other@gentoo.org"].proxied_maintainers

@@ -17,6 +17,11 @@ class Maintainer:
     packages: list[str] = field(default_factory=list)
     # From the first <name> found for them
     name: str = ""
+    # Listed with proxied="yes" on any package
+    proxied: bool = False
+    # For a proxy, the maintainers listed with proxied="yes" where it is their
+    # proxy, and those packages
+    proxied_maintainers: dict[str, list[str]] = field(default_factory=dict)
     # Date and subject of the person's most recent commits
     last_authored: str | None = None
     last_committed: str | None = None
@@ -88,6 +93,7 @@ def load_maintainers(repo: Path) -> dict[str, Maintainer]:
             continue
 
         # Direct children only: <upstream> has <maintainer> elements too.
+        proxied, proxies = set(), []
         for element in root.findall("maintainer"):
             email = (element.findtext("email") or "").strip().lower()
             if not email:
@@ -97,6 +103,14 @@ def load_maintainers(repo: Path) -> dict[str, Maintainer]:
             maintainer.name = maintainer.name or (element.findtext("name") or "").strip()
             if package not in maintainer.packages[-1:]:
                 maintainer.packages.append(package)
+            if element.get("proxied") == "yes":
+                maintainer.proxied = True
+                proxied.add(email)
+            elif element.get("proxied") in ("proxy", "maintainer-and-proxy"):
+                proxies.append(maintainer)
+        for proxy in proxies:
+            for email in sorted(proxied):
+                proxy.proxied_maintainers.setdefault(email, []).append(package)
 
     return dict(sorted(maintainers.items()))
 
