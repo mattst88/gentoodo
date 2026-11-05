@@ -71,14 +71,18 @@ def test_find_last_commits(tmp_path, git_env):
     commit(tmp_path, "first", "Dev@gentoo.org", "dev@gentoo.org", "2026-01-01T00:00:00+01:00")
     commit(tmp_path, "second", "dev@gentoo.org", "other@gentoo.org", "2026-01-02T00:00:00+01:00")
     commit(tmp_path, "third", "xdev@gentoo.org", "other@gentoo.org", "2026-01-03T00:00:00+01:00")
+    commit(tmp_path, "fourth", "old@example.com", "other@gentoo.org", "2026-01-04T00:00:00+01:00")
+    (tmp_path / ".mailmap").write_text("Some Body <new@example.com> <old@example.com>\n")
 
     dev = Maintainer("dev@gentoo.org", person=True)
     idle = Maintainer("idle@gentoo.org", person=True)
     project = Maintainer("other@gentoo.org")
-    find_last_commits(tmp_path, [dev, idle, project])
+    mapped = Maintainer("new@example.com", person=True)
+    find_last_commits(tmp_path, [dev, idle, project, mapped])
 
     assert dev.last_authored == "2026-01-02T00:00:00+01:00 second"
     assert dev.last_committed == "2026-01-01T00:00:00+01:00 first"
     assert idle.last_authored is None and idle.last_committed is None
     assert project.last_committed is None
+    assert mapped.last_authored == "2026-01-04T00:00:00+01:00 fourth"
 

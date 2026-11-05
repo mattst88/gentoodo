@@ -97,8 +97,9 @@ def find_last_commits(repo: Path, maintainers: list[Maintainer]) -> None:
         return
 
     # One pass over the history for everyone. Those who never committed
-    # under their metadata.xml address make this read all of it.
-    command = ["git", "-C", str(repo), "log", "--format=%ae%x00%ce%x00%aI%x00%cI%x00%s"]
+    # under their metadata.xml address, or one .mailmap maps to it, make
+    # this read all of it.
+    command = ["git", "-C", str(repo), "log", "--format=%aE%x00%cE%x00%aI%x00%cI%x00%s"]
     with subprocess.Popen(command, stdout=subprocess.PIPE,
                           text=True, errors="replace") as proc:
         for line in proc.stdout:
