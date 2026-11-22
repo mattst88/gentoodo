@@ -91,13 +91,13 @@ class ShortlogCollector(Collector):
 
         members = self.projects.get(maintainer.email)
         if members is None:
-            return [section(f"Changes in {self.month_name}",
+            return [section(f"Changes to Your Packages in {self.month_name}",
                             [(name, subject) for name, _, subject in commits])]
         ours = [(name, subject) for name, email, subject in commits
                 if email.lower() in members]
         others = [(name, subject) for name, email, subject in commits
                   if email.lower() not in members]
         return [
-            section(f"Changes by Project Members in {self.month_name}", ours),
-            section(f"Changes by Others in {self.month_name}", others),
+            section(f"Changes to Your Packages by Project Members in {self.month_name}", ours),
+            section(f"Changes to Your Packages by Others in {self.month_name}", others),
         ]

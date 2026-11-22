@@ -48,7 +48,7 @@ def test_shortlog_for_previous_month(monkeypatch):
     assert f"--since={first} 00:00:00 +0000" in commands[0]
     assert f"--until={last} 23:59:59 +0000" in commands[0]
     assert commands[0][-2:] == ("--", "app-misc/foo")
-    assert section.title == f"Changes in {first:%B %Y}"
+    assert section.title == f"Changes to Your Packages in {first:%B %Y}"
     assert section.text == (
         "Larry the Cow (2):\n"
         "      app-misc/foo: bar\n"
@@ -64,13 +64,13 @@ def test_shortlog_split_by_project_members(monkeypatch):
     _, [members, others] = collect(monkeypatch, maintainer)
 
     month = previous_month(datetime.now(UTC).date())[0].strftime("%B %Y")
-    assert members.title == f"Changes by Project Members in {month}"
+    assert members.title == f"Changes to Your Packages by Project Members in {month}"
     assert members.text == (
         "Larry the Cow (2):\n"
         "      app-misc/foo: bar\n"
         "      app-misc/foo: qux"
     )
-    assert others.title == f"Changes by Others in {month}"
+    assert others.title == f"Changes to Your Packages by Others in {month}"
     assert others.text == "Somebody (1):\n      app-misc/foo: baz"
 
 
@@ -81,7 +81,7 @@ def test_shortlog_for_given_month(monkeypatch):
 
     assert "--since=2026-02-01 00:00:00 +0000" in commands[0]
     assert "--until=2026-02-28 23:59:59 +0000" in commands[0]
-    assert section.title == "Changes in February 2026"
+    assert section.title == "Changes to Your Packages in February 2026"
 
 
 def test_parse_projects():
