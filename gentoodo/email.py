@@ -25,6 +25,17 @@ env = Environment(
 )
 
 
+def aligned(rows: list[list[str]]) -> str:
+    """`rows` as text, each column but the last padded to its widest cell."""
+    widths = [max(map(len, column)) for column in zip(*rows)][:-1]
+    return "\n".join(
+        "  ".join([*(cell.ljust(w) for cell, w in zip(row, widths)), row[-1]]).rstrip()
+        for row in rows)
+
+
+env.filters["aligned"] = aligned
+
+
 def render(config: Config, maintainer: Maintainer,
            sections: list[Section]) -> EmailMessage:
     msg = EmailMessage()

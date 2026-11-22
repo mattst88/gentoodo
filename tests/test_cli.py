@@ -56,6 +56,10 @@ def test_arch_activity_is_counted_with_other_sections(tmp_path):
     assert b"3 stabilization and keywording bugs not shown" in email.read_bytes()
 
 
+def test_table_alone_sends_email(tmp_path):
+    assert written(tmp_path, Section("Proxied Maintainers", rows=[["never", "a@b.org", ""]]))
+
+
 def test_collector_names_in_email_order():
     assert collector_names("shortlog,github_prs,shortlog") == ["github_prs", "shortlog"]
 
@@ -98,6 +102,7 @@ def test_process_returns_sections_by_collector(tmp_path):
 BUGS = Section("Open Bugs", [Item("Bug #1", ": crash", "https://bugs.gentoo.org/1")])
 QA = Section("New QA Warnings in November 2026", text="app-misc/foo: Warning")
 REDUNDANT = Section("Redundant Versions", [Item("app-misc/foo-1")])
+PROXIED = Section("Proxied Maintainers", columns=["When", "Who"], rows=[["never", "a@b.org"]])
 
 
 def save(tmp_path):
@@ -105,7 +110,7 @@ def save(tmp_path):
     # Not in the order of COLLECTORS
     data.save(path, [
         (Maintainer("x11@gentoo.org", packages=["x11-libs/libdrm"], last_authored="2026-11-02"),
-         [("redundant", REDUNDANT), ("qa", QA), ("bugs", BUGS)]),
+         [("redundant", REDUNDANT), ("qa", QA), ("bugs", BUGS), ("proxied", PROXIED)]),
         (Maintainer("larry@gentoo.org"), [("bugs", Section("Open Bugs"))]),
     ])
     return path
@@ -118,7 +123,7 @@ def test_data_round_trip(tmp_path):
 
     assert x11 == Maintainer("x11@gentoo.org", packages=["x11-libs/libdrm"],
                              last_authored="2026-11-02")
-    assert sections == [("redundant", REDUNDANT), ("qa", QA), ("bugs", BUGS)]
+    assert sections == [("redundant", REDUNDANT), ("qa", QA), ("bugs", BUGS), ("proxied", PROXIED)]
     assert larry.email == "larry@gentoo.org"
 
 

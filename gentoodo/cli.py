@@ -115,9 +115,9 @@ def write(config: Config, maintainer: Maintainer, sections: list[Section],
           dry_run: bool) -> None:
     """Write the email of `sections` to `maintainer`, if there is anything in
     them worth one."""
-    sections = [s for s in sections if s.items or s.text or s.omitted]
+    sections = [s for s in sections if s.content or s.omitted]
     # Counts of what was left out are not worth an email on their own.
-    if all(s.notice or not (s.items or s.text) for s in sections):
+    if all(s.notice or not s.content for s in sections):
         log.info("Nothing to report for %s", maintainer.email)
         return
 

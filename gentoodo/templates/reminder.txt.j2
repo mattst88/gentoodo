@@ -11,10 +11,13 @@ Last commit committed: {{ maintainer.last_committed }}
 {% endif %}
 {% for section in sections %}
 
-{% if section.text or not section.items %}
+{% if section.text or section.rows or not section.items %}
 == {{ section.title }} ==
 {% if section.text %}
 {{ section.text }}
+{% endif %}
+{% if section.rows %}
+{{ section.rows | aligned }}
 {% endif %}
 {% else %}
 == {{ section.title }} ({{ section.items | length }}) ==

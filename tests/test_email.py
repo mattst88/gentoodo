@@ -158,3 +158,33 @@ def test_send_outbox_empty_maintainer_sends_nothing(tmp_path):
     outbox(tmp_path)
     assert send_outbox(tmp_path, "/nonexistent", maintainer="") == 0
     assert sorted(p.name for p in tmp_path.glob("*.eml")) == ["fails.eml", "works.eml"]
+
+
+TABLE = Section("Proxied Maintainers by Last Authored Commit",
+                columns=["Last authored", "Maintainer", "Commit"],
+                rows=[["never", "idle@example.net", ""],
+                      ["2020-01-01", "old@example.com", "app-misc/foo: add <b>"]])
+
+
+def test_table_text():
+    msg = render(replace(CONFIG, multipart=False), MAINTAINER, [TABLE])
+
+    # Aligned, without the header
+    assert """\
+== Proxied Maintainers by Last Authored Commit ==
+never       idle@example.net
+2020-01-01  old@example.com   app-misc/foo: add <b>
+""" in msg.get_content()
+
+
+def test_table_html():
+    _, html = render(CONFIG, MAINTAINER, [TABLE]).iter_parts()
+
+    assert """\
+<h2>Proxied Maintainers by Last Authored Commit</h2>
+<table>
+<tr><th>Last authored</th><th>Maintainer</th><th>Commit</th></tr>
+<tr><td>never</td><td>idle@example.net</td><td></td></tr>
+<tr><td>2020-01-01</td><td>old@example.com</td><td>app-misc/foo: add &lt;b&gt;</td></tr>
+</table>
+""" in html.get_content()

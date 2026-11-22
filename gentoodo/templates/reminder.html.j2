@@ -10,6 +10,10 @@ pre{background:#f6f6f6;padding:10px 14px;border-radius:3px;overflow-x:auto;font-
 a{color:#0060a0}
 ul{margin:4px 0 0;padding-left:1.4em}
 li{margin-bottom:3px}
+table{border-collapse:collapse;font-size:.9em}
+th,td{text-align:left;vertical-align:top;padding:3px 14px 3px 0}
+th{border-bottom:1px solid #ddd}
+td{border-bottom:1px solid #f0f0f0}
 .meta{color:#555;font-size:.9em}
 .footer{margin-top:2em;padding-top:8px;border-top:1px solid #eee;color:#888;font-size:.85em}
 </style>
@@ -29,10 +33,20 @@ Last commit committed: {{ maintainer.last_committed }}
 </p>
 {% endif %}
 {% for section in sections %}
-{% if section.text or not section.items %}
+{% if section.text or section.rows or not section.items %}
 <h2>{{ section.title }}</h2>
 {% if section.text %}
 <pre>{{ section.text }}</pre>
+{% endif %}
+{% if section.rows %}
+<table>
+{% if section.columns %}
+<tr>{% for column in section.columns %}<th>{{ column }}</th>{% endfor %}</tr>
+{% endif %}
+{% for row in section.rows %}
+<tr>{% for cell in row %}<td>{{ cell }}</td>{% endfor %}</tr>
+{% endfor %}
+</table>
 {% endif %}
 {% else %}
 <h2>{{ section.title }} ({{ section.items | length }})</h2>
