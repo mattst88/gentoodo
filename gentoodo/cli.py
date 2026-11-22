@@ -5,8 +5,9 @@ import asyncio
 import logging
 import sys
 from datetime import date, datetime
+from pathlib import Path
 
-from . import __version__, repo
+from . import __version__, data, repo
 from .collectors.base import Collector, Section
 from .collectors.bugzilla import BugsCollector, NewBugsCollector
 from .collectors.codeberg_prs import CodebergPRsCollector
@@ -78,6 +79,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
                         help="comma-separated collectors to run (default: all)")
     parser.add_argument("--month", type=month,
                         help="report on this month, as YYYY-MM (default: the previous one)")
+    sources = parser.add_mutually_exclusive_group()
+    sources.add_argument("--save-data", type=Path, metavar="FILE",
+                         help="also save what was found for each maintainer, as JSON")
+    sources.add_argument("--from-data", type=Path, metavar="FILE",
+                         help="make the emails from what --save-data saved, "
+                              "querying nothing")
     parser.add_argument("--no-pull", action="store_true",
                         help="do not update the gentoo repository first")
     parser.add_argument("-j", "--jobs", type=positive_int, default=8,
@@ -86,7 +93,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
                         help="enable debug logging")
     parser.add_argument("--version", action="version",
                         version=f"%(prog)s {__version__}")
-    return parser.parse_args(argv)
+    args = parser.parse_args(argv)
+    if args.from_data and args.month:
+        parser.error("--month cannot be used with --from-data, which reports on "
+                     "the month it was saved for")
+    if args.send_outbox and (args.save_data or args.from_data):
+        parser.error("--send-outbox cannot be used with --save-data or --from-data")
+    return args
 
 
 async def collect(collector: Collector, maintainer: Maintainer) -> list[Section]:
@@ -98,30 +111,63 @@ async def collect(collector: Collector, maintainer: Maintainer) -> list[Section]
         return []
 
 
-async def process(config: Config, maintainer: Maintainer, collectors: list[Collector],
-                  dry_run: bool, semaphore: asyncio.Semaphore) -> None:
+def write(config: Config, maintainer: Maintainer, sections: list[Section],
+          dry_run: bool) -> None:
+    """Write the email of `sections` to `maintainer`, if there is anything in
+    them worth one."""
+    sections = [s for s in sections if s.items or s.text or s.omitted]
+    # Counts of what was left out are not worth an email on their own.
+    if all(s.notice or not (s.items or s.text) for s in sections):
+        log.info("Nothing to report for %s", maintainer.email)
+        return
+
+    try:
+        msg = render(config, maintainer, sections)
+        if dry_run:
+            print(msg.as_bytes().decode())
+            return
+        log.info("Wrote %s", write_email(config.output_dir, maintainer.email, msg))
+    except Exception:
+        log.exception("Failed to write reminder for %s", maintainer.email)
+
+
+async def process(config: Config, maintainer: Maintainer,
+                  collectors: dict[str, Collector], dry_run: bool,
+                  semaphore: asyncio.Semaphore) -> list[tuple[str, Section]]:
+    """Write the email to `maintainer`, and return its sections, each with
+    the name of the collector that found it."""
     async with semaphore:
         results = await asyncio.gather(
-            *(collect(c, maintainer) for c in collectors))
-        sections = [s for result in results for s in result
-                    if s.items or s.text or s.omitted]
-        # Counts of what was left out are not worth an email on their own.
-        if all(s.notice or not (s.items or s.text) for s in sections):
-            log.info("Nothing to report for %s", maintainer.email)
-            return
+            *(collect(c, maintainer) for c in collectors.values()))
+        sections = [(name, s) for name, result in zip(collectors, results)
+                    for s in result]
+        write(config, maintainer, [s for _, s in sections], dry_run)
+        return sections
 
-        try:
-            msg = render(config, maintainer, sections)
-            if dry_run:
-                print(msg.as_bytes().decode())
-                return
-            log.info("Wrote %s", write_email(config.output_dir, maintainer.email, msg))
-        except Exception:
-            log.exception("Failed to write reminder for %s", maintainer.email)
+
+def from_data(config: Config, args: argparse.Namespace) -> None:
+    try:
+        results = data.load(args.from_data)
+    except (OSError, ValueError) as e:
+        sys.exit(f"Failed to read {args.from_data}: {e}")
+    if args.maintainer:
+        results = [r for r in results if r[0].email == args.maintainer.lower()]
+        if not results:
+            sys.exit(f"{args.maintainer} is not in {args.from_data}")
+    # In the order of COLLECTORS now, not when saved, and without collectors
+    # no longer run or not chosen with --collectors
+    order = {name: i for i, name in enumerate(args.collectors)}
+    for maintainer, sections in results:
+        sections = sorted((p for p in sections if p[0] in order), key=lambda p: order[p[0]])
+        write(config, maintainer, [s for _, s in sections], args.dry_run)
 
 
 async def async_main(args: argparse.Namespace) -> None:
     config = load_config(args.config)
+    if args.from_data:
+        from_data(config, args)
+        return
+
     try:
         config.gentoo_repo = await repo.update(config, not args.no_pull)
     except repo.CloneError as e:
@@ -142,23 +188,30 @@ async def async_main(args: argparse.Namespace) -> None:
     else:
         selected = list(maintainers.values())
 
-    collectors = [COLLECTORS[name](config, args.month) for name in args.collectors]
+    collectors = {name: COLLECTORS[name](config, args.month) for name in args.collectors}
     try:
         await asyncio.gather(
             asyncio.to_thread(find_last_commits, config.gentoo_repo, selected),
-            *(c.setup() for c in collectors),
+            *(c.setup() for c in collectors.values()),
         )
     except Exception as e:
         sys.exit(f"Failed to fetch data: {e}")
 
     semaphore = asyncio.Semaphore(args.jobs)
-    await asyncio.gather(*(
+    results = await asyncio.gather(*(
         process(config, m, collectors, args.dry_run, semaphore)
         for m in selected
     ))
 
-    for collector in collectors:
+    for collector in collectors.values():
         collector.finish()
+
+    if args.save_data:
+        try:
+            data.save(args.save_data, list(zip(selected, results)))
+        except OSError as e:
+            sys.exit(f"Failed to save {args.save_data}: {e}")
+        log.info("Saved %s", args.save_data)
 
 
 def main(argv: list[str] | None = None) -> None:

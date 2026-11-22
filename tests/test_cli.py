@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from gentoodo import __version__, cli
+from gentoodo import __version__, cli, data
 from gentoodo.cli import collector_names, month, parse_args, process
 from gentoodo.collectors.base import Collector, Item, Section
 from gentoodo.config import Config
@@ -25,8 +25,8 @@ class FakeCollector(Collector):
 def written(tmp_path, *sections):
     config = Config(gentoo_repo=Path("/nonexistent"), output_dir=tmp_path)
     maintainer = Maintainer("x11@gentoo.org", packages=["x11-libs/libdrm"])
-    asyncio.run(process(config, maintainer, [FakeCollector(list(sections))], False,
-                        asyncio.Semaphore(1)))
+    asyncio.run(process(config, maintainer, {"fake": FakeCollector(list(sections))},
+                        False, asyncio.Semaphore(1)))
     return list(tmp_path.glob("*.eml"))
 
 
@@ -82,3 +82,96 @@ def test_version(capsys):
         parse_args(["--version"])
     assert e.value.code == 0
     assert capsys.readouterr().out == f"gentoodo {__version__}\n"
+
+
+def test_process_returns_sections_by_collector(tmp_path):
+    config = Config(gentoo_repo=Path("/nonexistent"), output_dir=tmp_path)
+    bugs, prs = Section("Open Bugs", [Item("Bug #1")]), Section("Open GitHub Pull Requests")
+    sections = asyncio.run(process(
+        config, Maintainer("x11@gentoo.org"),
+        {"bugs": FakeCollector([bugs]), "github_prs": FakeCollector([prs])},
+        False, asyncio.Semaphore(1)))
+    # Empty sections too, to decide again when made from saved data
+    assert sections == [("bugs", bugs), ("github_prs", prs)]
+
+
+BUGS = Section("Open Bugs", [Item("Bug #1", ": crash", "https://bugs.gentoo.org/1")])
+QA = Section("New QA Warnings in November 2026", text="app-misc/foo: Warning")
+REDUNDANT = Section("Redundant Versions", [Item("app-misc/foo-1")])
+
+
+def save(tmp_path):
+    path = tmp_path / "data" / "november.json"
+    # Not in the order of COLLECTORS
+    data.save(path, [
+        (Maintainer("x11@gentoo.org", packages=["x11-libs/libdrm"], last_authored="2026-11-02"),
+         [("redundant", REDUNDANT), ("qa", QA), ("bugs", BUGS)]),
+        (Maintainer("larry@gentoo.org"), [("bugs", Section("Open Bugs"))]),
+    ])
+    return path
+
+
+def test_data_round_trip(tmp_path):
+    path = save(tmp_path)
+
+    [(x11, sections), (larry, _)] = data.load(path)
+
+    assert x11 == Maintainer("x11@gentoo.org", packages=["x11-libs/libdrm"],
+                             last_authored="2026-11-02")
+    assert sections == [("redundant", REDUNDANT), ("qa", QA), ("bugs", BUGS)]
+    assert larry.email == "larry@gentoo.org"
+
+
+@pytest.mark.parametrize("text", ["", "[]", '{"format": 2}', '{"format": 1}',
+                                  '{"format": 1, "maintainers": [{"maintainer": {}}]}'])
+def test_data_load_invalid(tmp_path, text):
+    (tmp_path / "x.json").write_text(text)
+    with pytest.raises(ValueError):
+        data.load(tmp_path / "x.json")
+
+
+def from_data(tmp_path, monkeypatch, *args):
+    path = save(tmp_path)
+    outbox = tmp_path / "outbox"
+    config = Config(gentoo_repo=Path("/nonexistent"), output_dir=outbox, multipart=False)
+    monkeypatch.setattr(cli, "load_config", lambda path: config)
+    # Nothing is queried, not even the repository
+    monkeypatch.setattr(cli.repo, "update", None)
+    monkeypatch.setattr(cli, "load_maintainers", None)
+    cli.main(["--config", "x", "--from-data", str(path), *args])
+    return {p.name.partition("_2")[0]: p.read_text() for p in outbox.glob("*.eml")}
+
+
+def test_from_data(tmp_path, monkeypatch):
+    emails = from_data(tmp_path, monkeypatch)
+
+    # Nothing to report for larry@gentoo.org
+    assert list(emails) == ["x11_at_gentoo.org"]
+    text = emails["x11_at_gentoo.org"]
+    # In the order of COLLECTORS now
+    assert (text.index("New QA Warnings") < text.index("Redundant Versions")
+            < text.index("Open Bugs"))
+    assert "Last commit authored: 2026-11-02" in text
+
+
+def test_from_data_collectors(tmp_path, monkeypatch):
+    text = from_data(tmp_path, monkeypatch, "--collectors", "qa,bugs")["x11_at_gentoo.org"]
+    assert "Open Bugs" in text
+    assert "Redundant Versions" not in text
+
+
+def test_from_data_maintainer(tmp_path, monkeypatch):
+    assert from_data(tmp_path, monkeypatch, "--maintainer", "X11@gentoo.org")
+    with pytest.raises(SystemExit, match="larry@example.org is not in"):
+        from_data(tmp_path, monkeypatch, "--maintainer", "larry@example.org")
+
+
+@pytest.mark.parametrize("args", [
+    ["--from-data", "x.json", "--month", "2026-10"],
+    ["--from-data", "x.json", "--save-data", "y.json"],
+    ["--send-outbox", "--save-data", "y.json"],
+])
+def test_data_options_conflict(args):
+    with pytest.raises(SystemExit) as e:
+        parse_args(["--config", "x", *args])
+    assert e.value.code == 2

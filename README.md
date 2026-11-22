@@ -78,6 +78,19 @@ given, or in the directory given with `--output`, with an `index.html`
 linking to them all. An email with no HTML part, written with
 `multipart = false`, is shown as its plain text.
 
+To work on how the emails are rendered without querying everything again
+each time, save what was found for each maintainer, and make the emails
+again from it:
+
+    gentoodo --config config.toml --save-data november.json
+    gentoodo --config config.toml --from-data november.json
+
+`--from-data` queries nothing, not even the repository, and reports on
+the month the data was saved for. The sections are put in the order the
+collectors run in now, and `--collectors` and `--maintainer` choose
+among them. Changes to the templates and the configuration show up, but
+not changes to the collectors, which make the text of each item.
+
 To send what was written, with the `sendmail` of the configuration:
 
     gentoodo --config config.toml --send-outbox
