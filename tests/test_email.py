@@ -169,11 +169,13 @@ TABLE = Section("Proxied Maintainers by Last Authored Commit",
 def test_table_text():
     msg = render(replace(CONFIG, multipart=False), MAINTAINER, [TABLE])
 
-    # Aligned, without the header
+    # Aligned, under the header
     assert """\
 == Proxied Maintainers by Last Authored Commit ==
-never       idle@example.net
-2020-01-01  old@example.com   app-misc/foo: add <b>
+Last authored  Maintainer        Commit
+-------------  ----------------  ---------------------
+never          idle@example.net
+2020-01-01     old@example.com   app-misc/foo: add <b>
 """ in msg.get_content()
 
 
@@ -201,7 +203,8 @@ def test_links_text():
 
     # Their text only
     assert """\
-== Outdated Packages ==
+Package       Bump PR
+------------  ----------------------
 app-misc/foo  GitHub #1, Codeberg #2
 app-misc/<b>
 """ in msg.get_content()

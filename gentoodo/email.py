@@ -25,9 +25,12 @@ env = Environment(
 )
 
 
-def aligned(rows: list[list[Cell]]) -> str:
-    """`rows` as text, each column but the last padded to its widest cell."""
+def aligned(rows: list[list[Cell]], columns: list[str] | None = None) -> str:
+    """`rows` as text, each column but the last padded to its widest cell,
+    under a header of `columns`, if given, underlined with dashes."""
     rows = [[cell_text(cell) for cell in row] for row in rows]
+    if columns:
+        rows = [columns, ["-" * max(map(len, c)) for c in zip(columns, *rows)], *rows]
     widths = [max(map(len, column)) for column in zip(*rows)][:-1]
     return "\n".join(
         "  ".join([*(cell.ljust(w) for cell, w in zip(row, widths)), row[-1]]).rstrip()

@@ -51,7 +51,7 @@ class Section:
     title: str
     items: list[Item] = field(default_factory=list)
     text: str = ""  # preformatted, shown instead of items
-    # A table, shown instead of items, with a header of `columns` in HTML
+    # A table, shown instead of items, under a header of `columns`
     columns: list[str] = field(default_factory=list)
     rows: list[list[Cell]] = field(default_factory=list)
     urls_in_text: bool = False  # also print each item's URL in the text part
