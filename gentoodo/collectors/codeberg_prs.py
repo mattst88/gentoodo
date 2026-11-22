@@ -2,17 +2,24 @@
 
 import asyncio
 import json
+import logging
+import os
+import re
 
-from ..util import fetch_with_headers
+from ..util import fetch_with_headers, run
 from .pull_requests import PullRequest, PullRequestsCollector
+
+log = logging.getLogger(__name__)
 
 URL = "https://codeberg.org"
 
 # Forgejo's largest page size by default
 PAGE_SIZE = 50
 
-# Pull requests whose files are fetched at once
-CONCURRENCY = 4
+# Pull requests whose files are listed at once
+CONCURRENCY = 8
+
+MISSING_REF = re.compile(r"couldn't find remote ref (\S+)")
 
 
 def next_link(header: str | None) -> str | None:
@@ -39,20 +46,56 @@ class CodebergPRsCollector(PullRequestsCollector):
     forge = "Codeberg"
 
     async def fetch(self) -> list[PullRequest]:
-        api = f"{URL}/api/v1/repos/{self.config.codeberg_repo}/pulls"
-        query = f"limit={PAGE_SIZE}"
-
         # https://codeberg.org/api/swagger#/repository/repoListPullRequests
         # A pull request that could not be retrieved is null in the list.
-        prs = [pr for pr in await fetch_pages(f"{api}?state=open&{query}") if pr]
+        prs = [pr for pr in await fetch_pages(
+            f"{URL}/api/v1/repos/{self.config.codeberg_repo}/pulls"
+            f"?state=open&limit={PAGE_SIZE}") if pr]
+        if not prs:
+            return []
+
+        # The files of each pull request are read from git, not from the
+        # API's list of them. Codeberg counts each of those lists as a git
+        # operation, of which it allows 250 every 10 minutes, too few for a
+        # request for each pull request, but one fetch of them all counts as
+        # one operation.
+        repo = str(self.config.gentoo_repo)
+        # Fetch refs/pull/N/head, which covers forks too (the API gives only
+        # the branch name). No refs or FETCH_HEAD are written, since another
+        # fetch may be writing them; the objects are found by the SHAs in `prs`.
+        heads = {f"refs/pull/{pr['number']}/head": pr for pr in prs}
+        while heads:
+            try:
+                await run("git", "-C", repo, "fetch", "--quiet", "--no-write-fetch-head",
+                          "--no-tags", f"{URL}/{self.config.codeberg_repo}.git", *heads,
+                          timeout=900,
+                          # In English, to find the head it names
+                          env=os.environ | {"GIT_TERMINAL_PROMPT": "0", "LC_ALL": "C"})
+                break
+            except RuntimeError as e:
+                # Closed, with its head deleted, since it was listed. git
+                # names only the first such head, so fetch again without it.
+                if not (m := MISSING_REF.search(str(e))) or m[1] not in heads:
+                    raise
+                log.warning("Skipping Codeberg PR #%d: closed since it was listed",
+                            heads.pop(m[1])["number"])
+        prs = list(heads.values())
 
         semaphore = asyncio.Semaphore(CONCURRENCY)
 
-        # https://codeberg.org/api/swagger#/repository/repoGetPullRequestFiles
-        async def files(pr: dict) -> PullRequest:
+        async def files(pr: dict) -> PullRequest | None:
+            # No rename detection, which would fetch the contents of files
+            # a partial clone lacks, so a renamed file is listed under its
+            # old and new names.
             async with semaphore:
-                pr_files = await fetch_pages(f"{api}/{pr['number']}/files?{query}")
+                try:
+                    out = await run("git", "-C", repo, "diff", "--name-only", "-z",
+                                    "--no-renames", pr["merge_base"], pr["head"]["sha"])
+                except RuntimeError as e:
+                    # e.g. pushed to after it was listed
+                    log.warning("Skipping Codeberg PR #%d: %s", pr["number"], e)
+                    return None
             return PullRequest(pr["number"], pr["title"], pr["html_url"],
-                               [f["filename"] for f in pr_files])
+                               out.split("\0")[:-1])
 
-        return await asyncio.gather(*map(files, prs))
+        return [pr for pr in await asyncio.gather(*map(files, prs)) if pr]
