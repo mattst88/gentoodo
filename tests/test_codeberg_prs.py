@@ -128,6 +128,8 @@ def test_files_since_merge_base(monkeypatch, forge):
     collector, _ = setup(monkeypatch, forge, {f"{API}?state=open&limit=50": [[pr]]})
 
     assert set(collector.items) == {"app-misc/foo"}
+    [pull_request] = collector.prs
+    assert pull_request.added == ["app-misc/foo/foo-2.ebuild"]
 
 
 def test_rename_lists_both_names(monkeypatch, forge):
@@ -139,6 +141,9 @@ def test_rename_lists_both_names(monkeypatch, forge):
     before = missing()
     collector, _ = setup(monkeypatch, forge, {f"{API}?state=open&limit=50": [[pr]]})
     assert set(collector.items) == {"app-misc/foo", "app-misc/baz"}
+    # Under its new name, as no renames are detected
+    [pull_request] = collector.prs
+    assert pull_request.added == ["app-misc/baz/foo-1.ebuild"]
     # Without fetching the contents of the files to detect the rename
     assert before and missing() == before
 

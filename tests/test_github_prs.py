@@ -47,7 +47,7 @@ RATE_LIMIT = RuntimeError("gh exited with status 1: gh: You have exceeded a seco
 
 def pr(number, package):
     return {"number": number, "title": "Bump", "url": f"https://example.org/{number}",
-            "files": {"nodes": [{"path": f"{package}/foo-1.ebuild"}]}}
+            "files": {"nodes": [{"path": f"{package}/foo-1.ebuild", "changeType": "ADDED"}]}}
 
 
 def test_pages(monkeypatch):
@@ -96,7 +96,7 @@ def test_does_not_retry_other_errors(monkeypatch):
 def test_sorted_by_number(monkeypatch):
     # Packages in metadata.xml order, not alphabetical, and a PR on two of them
     prs = [pr(5, "z/z"), pr(3, "a/a"), pr(4, "m/m"), pr(1, "m/m"), pr(2, "z/z")]
-    prs[0]["files"]["nodes"].append({"path": "a/a/foo-2.ebuild"})
+    prs[0]["files"]["nodes"].append({"path": "a/a/foo-2.ebuild", "changeType": "ADDED"})
     collector, _ = setup(monkeypatch, [page(prs)])
     maintainer = Maintainer("x@gentoo.org", packages=["m/m", "z/z", "a/a"])
 
@@ -114,3 +114,18 @@ def test_failure_is_a_notice(monkeypatch):
     assert section.notice
     assert section.title == "Open GitHub Pull Requests"
     assert section.text == "Could not be fetched from GitHub."
+
+
+def test_added_files(monkeypatch):
+    prs = [pr(1, "a/a")]
+    prs[0]["files"]["nodes"] = [
+        {"path": "a/a/a-2.ebuild", "changeType": "ADDED"},
+        {"path": "a/a/a-1.ebuild", "changeType": "DELETED"},
+        {"path": "a/a/Manifest", "changeType": "MODIFIED"},
+        {"path": "a/a/a-3.ebuild", "changeType": "RENAMED"},
+        {"path": "a/a/a-4.ebuild", "changeType": "COPIED"},
+    ]
+    collector, _ = setup(monkeypatch, [page(prs)])
+
+    [pull_request] = collector.prs
+    assert pull_request.added == ["a/a/a-2.ebuild", "a/a/a-3.ebuild", "a/a/a-4.ebuild"]

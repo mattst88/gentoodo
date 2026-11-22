@@ -11,6 +11,9 @@ from .pull_requests import PullRequest, PullRequestsCollector
 
 log = logging.getLogger(__name__)
 
+# The changeTypes of files a pull request adds
+ADDED = {"ADDED", "COPIED", "RENAMED"}
+
 # GitHub often answers with a 502 when asked for many more of these at once.
 # It lists at most the first 100 files of each pull request.
 QUERY = """
@@ -18,7 +21,7 @@ query($owner: String!, $name: String!, $cursor: String) {
   repository(owner: $owner, name: $name) {
     pullRequests(states: OPEN, first: 50, after: $cursor) {
       pageInfo { hasNextPage endCursor }
-      nodes { number title url files(first: 100) { nodes { path } } }
+      nodes { number title url files(first: 100) { nodes { path changeType } } }
     }
   }
 }
@@ -57,7 +60,9 @@ class GitHubPRsCollector(PullRequestsCollector):
             page = json.loads(out)["data"]["repository"]["pullRequests"]
             prs += [
                 PullRequest(pr["number"], pr["title"], pr["url"],
-                            [f["path"] for f in pr["files"]["nodes"]])
+                            [f["path"] for f in pr["files"]["nodes"]],
+                            [f["path"] for f in pr["files"]["nodes"]
+                             if f["changeType"] in ADDED])
                 for pr in page["nodes"]
             ]
             if not page["pageInfo"]["hasNextPage"]:

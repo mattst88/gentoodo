@@ -2,7 +2,7 @@
 
 import logging
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from ..maintainers import Maintainer
 from .base import Item, PackageCollector, Section
@@ -16,6 +16,8 @@ class PullRequest:
     title: str
     url: str
     files: list[str]
+    # Those of `files` it adds, as copies or under new names too
+    added: list[str] = field(default_factory=list)
 
 
 def number(item: Item) -> int:
@@ -44,16 +46,18 @@ class PullRequestsCollector(PackageCollector):
     forge: str
     urls_in_text = True
     items: dict[str, list[Item]] | None  # None if the forge could not be read
+    prs: list[PullRequest] | None
 
     async def fetch(self) -> list[PullRequest]:
         raise NotImplementedError
 
     async def setup(self) -> None:
         try:
-            self.items = group_by_package(await self.fetch())
+            self.prs = await self.fetch()
         except Exception as e:
             log.warning("Failed to fetch %s pull requests: %s", self.forge, e)
-            self.items = None
+            self.prs = None
+        self.items = None if self.prs is None else group_by_package(self.prs)
 
     async def collect(self, maintainer: Maintainer) -> list[Section]:
         if self.items is None:

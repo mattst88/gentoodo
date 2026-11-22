@@ -89,13 +89,17 @@ class CodebergPRsCollector(PullRequestsCollector):
             # old and new names.
             async with semaphore:
                 try:
-                    out = await run("git", "-C", repo, "diff", "--name-only", "-z",
+                    out = await run("git", "-C", repo, "diff", "--name-status", "-z",
                                     "--no-renames", pr["merge_base"], pr["head"]["sha"])
                 except RuntimeError as e:
                     # e.g. pushed to after it was listed
                     log.warning("Skipping Codeberg PR #%d: %s", pr["number"], e)
                     return None
+            # Each file's status, then its name
+            fields = out.split("\0")[:-1]
+            changes = list(zip(fields[::2], fields[1::2]))
             return PullRequest(pr["number"], pr["title"], pr["html_url"],
-                               out.split("\0")[:-1])
+                               [name for _, name in changes],
+                               [name for status, name in changes if status == "A"])
 
         return [pr for pr in await asyncio.gather(*map(files, prs)) if pr]
