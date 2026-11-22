@@ -10,7 +10,7 @@ from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
-from .collectors.base import Section
+from .collectors.base import Cell, Section, cell_text
 from .config import Config
 from .maintainers import Maintainer
 
@@ -25,8 +25,9 @@ env = Environment(
 )
 
 
-def aligned(rows: list[list[str]]) -> str:
+def aligned(rows: list[list[Cell]]) -> str:
     """`rows` as text, each column but the last padded to its widest cell."""
+    rows = [[cell_text(cell) for cell in row] for row in rows]
     widths = [max(map(len, column)) for column in zip(*rows)][:-1]
     return "\n".join(
         "  ".join([*(cell.ljust(w) for cell, w in zip(row, widths)), row[-1]]).rstrip()

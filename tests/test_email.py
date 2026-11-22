@@ -3,7 +3,7 @@
 from dataclasses import replace
 from pathlib import Path
 
-from gentoodo.collectors.base import Item, Section
+from gentoodo.collectors.base import Item, Link, Section
 from gentoodo.config import Config
 from gentoodo.email import render, send_outbox
 from gentoodo.maintainers import Maintainer
@@ -187,4 +187,30 @@ def test_table_html():
 <tr><td>never</td><td>idle@example.net</td><td></td></tr>
 <tr><td>2020-01-01</td><td>old@example.com</td><td>app-misc/foo: add &lt;b&gt;</td></tr>
 </table>
+""" in html.get_content()
+
+
+LINKS = Section("Outdated Packages", columns=["Package", "Bump PR"],
+                rows=[[Link("app-misc/foo", "https://p.org/foo"),
+                       [Link("GitHub #1", "https://x.org/1"), Link("Codeberg #2", "https://y.org/2")]],
+                      [Link("app-misc/<b>", "https://p.org/b?x=1&y=2"), []]])
+
+
+def test_links_text():
+    msg = render(replace(CONFIG, multipart=False), MAINTAINER, [LINKS])
+
+    # Their text only
+    assert """\
+== Outdated Packages ==
+app-misc/foo  GitHub #1, Codeberg #2
+app-misc/<b>
+""" in msg.get_content()
+
+
+def test_links_html():
+    _, html = render(CONFIG, MAINTAINER, [LINKS]).iter_parts()
+
+    assert """\
+<tr><td><a href="https://p.org/foo">app-misc/foo</a></td><td><a href="https://x.org/1">GitHub #1</a>, <a href="https://y.org/2">Codeberg #2</a></td></tr>
+<tr><td><a href="https://p.org/b?x=1&amp;y=2">app-misc/&lt;b&gt;</a></td><td></td></tr>
 """ in html.get_content()

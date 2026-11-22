@@ -9,7 +9,7 @@ import pytest
 
 from gentoodo import __version__, cli, data
 from gentoodo.cli import collector_names, month, parse_args, process
-from gentoodo.collectors.base import Collector, Item, Section
+from gentoodo.collectors.base import Collector, Item, Link, Section
 from gentoodo.config import Config
 from gentoodo.maintainers import Maintainer
 
@@ -102,6 +102,9 @@ def test_process_returns_sections_by_collector(tmp_path):
 BUGS = Section("Open Bugs", [Item("Bug #1", ": crash", "https://bugs.gentoo.org/1")])
 QA = Section("New QA Warnings in November 2026", text="app-misc/foo: Warning")
 REDUNDANT = Section("Redundant Versions", [Item("app-misc/foo-1")])
+OUTDATED = Section("Outdated Packages", columns=["Package", "Bump PR"],
+                   rows=[[Link("app-misc/foo", "https://x.org/foo"), [Link("PR #2", "https://x.org/2")]],
+                         [Link("app-misc/bar", "https://x.org/bar"), []]])
 PROXIED = Section("Proxied Maintainers", columns=["When", "Who"], rows=[["never", "a@b.org"]])
 
 
@@ -110,7 +113,8 @@ def save(tmp_path):
     # Not in the order of COLLECTORS
     data.save(path, [
         (Maintainer("x11@gentoo.org", packages=["x11-libs/libdrm"], last_authored="2026-11-02"),
-         [("redundant", REDUNDANT), ("qa", QA), ("bugs", BUGS), ("proxied", PROXIED)]),
+         [("redundant", REDUNDANT), ("qa", QA), ("bugs", BUGS), ("outdated", OUTDATED),
+          ("proxied", PROXIED)]),
         (Maintainer("larry@gentoo.org"), [("bugs", Section("Open Bugs"))]),
     ])
     return path
@@ -123,7 +127,8 @@ def test_data_round_trip(tmp_path):
 
     assert x11 == Maintainer("x11@gentoo.org", packages=["x11-libs/libdrm"],
                              last_authored="2026-11-02")
-    assert sections == [("redundant", REDUNDANT), ("qa", QA), ("bugs", BUGS), ("proxied", PROXIED)]
+    assert sections == [("redundant", REDUNDANT), ("qa", QA), ("bugs", BUGS),
+                        ("outdated", OUTDATED), ("proxied", PROXIED)]
     assert larry.email == "larry@gentoo.org"
 
 

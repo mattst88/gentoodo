@@ -16,6 +16,25 @@ class Item:
     url: str | None = None
 
 
+@dataclass(frozen=True)
+class Link:
+    """A table cell linking `text` to `url` in HTML."""
+    text: str
+    url: str
+
+
+# A table cell: text, a link, or links shown one after another
+Cell = str | Link | list[Link]
+
+
+def cell_text(cell: Cell) -> str:
+    if isinstance(cell, str):
+        return cell
+    if isinstance(cell, Link):
+        return cell.text
+    return ", ".join(link.text for link in cell)
+
+
 @dataclass
 class Section:
     title: str
@@ -23,7 +42,7 @@ class Section:
     text: str = ""  # preformatted, shown instead of items
     # A table, shown instead of items, with a header of `columns` in HTML
     columns: list[str] = field(default_factory=list)
-    rows: list[list[str]] = field(default_factory=list)
+    rows: list[list[Cell]] = field(default_factory=list)
     urls_in_text: bool = False  # also print each item's URL in the text part
     notice: bool = False  # not worth an email on its own
     omitted: str = ""  # what was left out, shown after the items or text

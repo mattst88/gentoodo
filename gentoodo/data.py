@@ -8,7 +8,7 @@ import json
 from dataclasses import asdict
 from pathlib import Path
 
-from .collectors.base import Item, Section
+from .collectors.base import Cell, Item, Link, Section
 from .maintainers import Maintainer
 
 FORMAT = 1
@@ -32,6 +32,15 @@ def save(path: Path, results: Results) -> None:
     path.write_text(json.dumps(data, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
+def cell(value: str | dict | list) -> Cell:
+    """A table cell as `save()` wrote it."""
+    if isinstance(value, dict):
+        return Link(**value)
+    if isinstance(value, list):
+        return [Link(**link) for link in value]
+    return value
+
+
 def load(path: Path) -> Results:
     """Read what `save()` wrote, raising ValueError if it cannot be."""
     try:
@@ -41,7 +50,10 @@ def load(path: Path) -> Results:
         return [
             (Maintainer(**entry["maintainer"]),
              [(section.pop("collector"),
-               Section(**section | {"items": [Item(**i) for i in section["items"]]}))
+               Section(**section | {
+                   "items": [Item(**i) for i in section["items"]],
+                   "rows": [[cell(c) for c in row] for row in section.get("rows", [])],
+               }))
               for section in entry["sections"]])
             for entry in data["maintainers"]
         ]

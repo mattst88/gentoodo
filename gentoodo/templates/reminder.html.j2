@@ -44,7 +44,11 @@ Last commit committed: {{ maintainer.last_committed }}
 <tr>{% for column in section.columns %}<th>{{ column }}</th>{% endfor %}</tr>
 {% endif %}
 {% for row in section.rows %}
-<tr>{% for cell in row %}<td>{{ cell }}</td>{% endfor %}</tr>
+<tr>{% for cell in row %}<td>
+{%- if cell is string %}{{ cell }}
+{%- elif cell.url is defined %}<a href="{{ cell.url }}">{{ cell.text }}</a>
+{%- else %}{% for link in cell %}{{ ", " if not loop.first }}<a href="{{ link.url }}">{{ link.text }}</a>{% endfor %}
+{%- endif %}</td>{% endfor %}</tr>
 {% endfor %}
 </table>
 {% endif %}
