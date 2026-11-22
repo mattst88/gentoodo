@@ -14,7 +14,8 @@ listing:
   CI
 - the open GitHub and Codeberg pull requests that touch their packages
 - the commits to their packages in the previous month (for a project,
-  split into commits by its members and by others)
+  split into commits by its members and by others, with a count of the
+  others' commits that each member committed)
 - the pkgcheck errors and warnings new in the previous month, from
   Gentoo's CI
 - their redundant package versions, from Gentoo's CI

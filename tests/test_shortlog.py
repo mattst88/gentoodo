@@ -15,14 +15,24 @@ PROJECTS = b"""<?xml version="1.0" encoding="UTF-8"?>
   <project>
     <email>x11@gentoo.org</email>
     <member><email>Larry@gentoo.org</email></member>
+    <member><email>adam@gentoo.org</email></member>
+    <member><email>zoe@gentoo.org</email></member>
   </project>
 </projects>
 """
 
+
+def entry(author, email, subject, committer=None, committer_email=None):
+    """A commit as git log formats it, committed by its author by default."""
+    return "\0".join([author, email, committer or author, committer_email or email,
+                      subject]) + "\n"
+
+
 LOG = (
-    "Larry the Cow\0larry@gentoo.org\0app-misc/foo: bar\n"
-    "Somebody\0somebody@example.com\0app-misc/foo: baz\n"
-    "Larry the Cow\0larry@gentoo.org\0app-misc/foo: qux\n"
+    entry("Larry the Cow", "larry@gentoo.org", "app-misc/foo: bar") +
+    entry("Somebody", "somebody@example.com", "app-misc/foo: baz",
+          "Larry the Cow", "larry@gentoo.org") +
+    entry("Larry the Cow", "larry@gentoo.org", "app-misc/foo: qux")
 )
 
 
@@ -61,7 +71,7 @@ def test_shortlog_for_previous_month(monkeypatch):
 
 def test_shortlog_split_by_project_members(monkeypatch):
     maintainer = Maintainer("x11@gentoo.org", packages=["app-misc/foo"])
-    _, [members, others] = collect(monkeypatch, maintainer)
+    _, [members, others, committed] = collect(monkeypatch, maintainer)
 
     month = previous_month(datetime.now(UTC).date())[0].strftime("%B %Y")
     assert members.title == f"Changes to Your Packages by Project Members in {month}"
@@ -72,6 +82,10 @@ def test_shortlog_split_by_project_members(monkeypatch):
     )
     assert others.title == f"Changes to Your Packages by Others in {month}"
     assert others.text == "Somebody (1):\n      app-misc/foo: baz"
+    assert committed.title == f"Others' Changes Committed by Project Members in {month}"
+    assert committed.columns == ["Committer", "Commits"]
+    assert committed.rows == [["Larry the Cow", "1"]]
+    assert committed.notice
 
 
 def test_shortlog_for_given_month(monkeypatch):
@@ -82,6 +96,25 @@ def test_shortlog_for_given_month(monkeypatch):
     assert "--since=2026-02-01 00:00:00 +0000" in commands[0]
     assert "--until=2026-02-28 23:59:59 +0000" in commands[0]
     assert section.title == "Changes to Your Packages in February 2026"
+
+
+def test_shortlog_committed_by_project_members(monkeypatch):
+    larry = ("Larry the Cow", "larry@gentoo.org")
+    log = (
+        entry("Somebody", "somebody@example.com", "app-misc/foo: a", *larry) +
+        entry("Else", "else@example.com", "app-misc/foo: b", "Mary", "mary@gentoo.org") +
+        entry("Else", "else@example.com", "app-misc/foo: c", *larry) +
+        entry("Else", "else@example.com", "app-misc/foo: d") +
+        entry("Mary", "mary@gentoo.org", "app-misc/foo: e", *larry) +
+        entry("Else", "else@example.com", "app-misc/foo: f", "Zoe", "zoe@gentoo.org") +
+        entry("Else", "else@example.com", "app-misc/foo: g", "Adam", "adam@gentoo.org")
+    )
+    maintainer = Maintainer("x11@gentoo.org", packages=["app-misc/foo"])
+    _, [_, _, committed] = collect(monkeypatch, maintainer, log=log)
+
+    # Mary is not a member of x11, so what she commits is not counted, and
+    # what she authors is a change by others. Ties are in order of name.
+    assert committed.rows == [["Larry the Cow", "3"], ["Adam", "1"], ["Zoe", "1"]]
 
 
 def test_parse_projects():
@@ -112,16 +145,16 @@ def test_parse_projects():
 
 def test_shortlog_arch_commits_only_counted(monkeypatch):
     log = (
-        "Larry the Cow\0larry@gentoo.org\0app-misc/foo: bar\n"
-        "Arch Tester\0arch@gentoo.org\0app-misc/foo: Stabilize 1.0 amd64, #123\n"
-        "Arch Tester\0arch@gentoo.org\0app-misc/foo: Keyword 1.0 ~riscv, #124\n"
-        "Somebody\0somebody@example.com\0app-misc/foo: stabilize 1.0 for ALLARCHES\n"
-        "Somebody\0somebody@example.com\0app-misc/foo: keyword 1.0 for ~arm64\n"
-        "Somebody\0somebody@example.com\0app-misc/foo: Stabilize on amd64 is broken\n"
-        "Somebody\0somebody@example.com\0app-misc/foo: unkeyword 1.0 for ~x86\n"
+        entry("Larry the Cow", "larry@gentoo.org", "app-misc/foo: bar") +
+        entry("Arch Tester", "arch@gentoo.org", "app-misc/foo: Stabilize 1.0 amd64, #123") +
+        entry("Arch Tester", "arch@gentoo.org", "app-misc/foo: Keyword 1.0 ~riscv, #124") +
+        entry("Somebody", "somebody@example.com", "app-misc/foo: stabilize 1.0 for ALLARCHES") +
+        entry("Somebody", "somebody@example.com", "app-misc/foo: keyword 1.0 for ~arm64") +
+        entry("Somebody", "somebody@example.com", "app-misc/foo: Stabilize on amd64 is broken") +
+        entry("Somebody", "somebody@example.com", "app-misc/foo: unkeyword 1.0 for ~x86")
     )
     maintainer = Maintainer("x11@gentoo.org", packages=["app-misc/foo"])
-    _, [members, others] = collect(monkeypatch, maintainer, log=log)
+    _, [members, others, committed] = collect(monkeypatch, maintainer, log=log)
 
     assert members.text == "Larry the Cow (1):\n      app-misc/foo: bar"
     assert members.omitted == ""
@@ -131,10 +164,11 @@ def test_shortlog_arch_commits_only_counted(monkeypatch):
         "      app-misc/foo: unkeyword 1.0 for ~x86"
     )
     assert others.omitted == "4 stabilization and keywording commits not shown"
+    assert committed.rows == []
 
 
 def test_shortlog_only_arch_commits(monkeypatch):
-    log = "Arch Tester\0arch@gentoo.org\0app-misc/foo: Stabilize 1.0 amd64, #123\n"
+    log = entry("Arch Tester", "arch@gentoo.org", "app-misc/foo: Stabilize 1.0 amd64, #123")
     maintainer = Maintainer("larry@gentoo.org", packages=["app-misc/foo"])
     _, [section] = collect(monkeypatch, maintainer, log=log)
 

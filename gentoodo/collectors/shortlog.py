@@ -3,7 +3,7 @@
 import asyncio
 import re
 import xml.etree.ElementTree as ET
-from collections import defaultdict
+from collections import Counter, defaultdict
 
 from .base import Collector, Section, omitted_text
 from ..maintainers import Maintainer
@@ -55,6 +55,15 @@ def section(title: str, commits: list[tuple[str, str]]) -> Section:
                    omitted=omitted_text(len(commits) - len(listed), "commit"))
 
 
+def committed(title: str, committers: list[str]) -> Section:
+    """Count the commits each committer committed, most first."""
+    counts = sorted(Counter(committers).items(), key=lambda c: (-c[1], c[0]))
+    return Section(title, columns=["Committer", "Commits"],
+                   rows=[[name, str(count)] for name, count in counts],
+                   # Only a count of commits shown elsewhere
+                   notice=True)
+
+
 def shortlog(commits: list[tuple[str, str]]) -> str:
     """Format (author, subject) pairs, oldest first, like git shortlog."""
     by_author: dict[str, list[str]] = defaultdict(list)
@@ -69,7 +78,8 @@ def shortlog(commits: list[tuple[str, str]]) -> str:
 class ShortlogCollector(Collector):
     """Commits to the maintainer's packages in the month reported on.
 
-    For a project, those by its members and by others are listed apart.
+    For a project, those by its members and by others are listed apart, and
+    the commits by others that each member committed are counted.
     Stabilization and keywording commits are only counted.
     """
 
@@ -81,10 +91,10 @@ class ShortlogCollector(Collector):
         self.projects = parse_projects(await asyncio.to_thread(fetch, PROJECTS_URL))
 
     async def collect(self, maintainer: Maintainer) -> list[Section]:
-        # Authors as .mailmap has them, oldest commit first
+        # Authors and committers as .mailmap has them, oldest commit first
         out = await run(
             "git", "-C", str(self.config.gentoo_repo),
-            "log", "--reverse", "--format=%aN%x00%aE%x00%s", *self.range,
+            "log", "--reverse", "--format=%aN%x00%aE%x00%cN%x00%cE%x00%s", *self.range,
             "HEAD", "--", *maintainer.packages,
         )
         commits = [line.split("\0") for line in out.splitlines()]
@@ -92,12 +102,18 @@ class ShortlogCollector(Collector):
         members = self.projects.get(maintainer.email)
         if members is None:
             return [section(f"Changes to Your Packages in {self.month_name}",
-                            [(name, subject) for name, _, subject in commits])]
-        ours = [(name, subject) for name, email, subject in commits
-                if email.lower() in members]
-        others = [(name, subject) for name, email, subject in commits
-                  if email.lower() not in members]
+                            [(author, subject) for author, _, _, _, subject in commits])]
+        ours, others, committed_by = [], [], []
+        for author, author_email, committer, committer_email, subject in commits:
+            if author_email.lower() in members:
+                ours.append((author, subject))
+                continue
+            others.append((author, subject))
+            if committer_email.lower() in members:
+                committed_by.append(committer)
         return [
             section(f"Changes to Your Packages by Project Members in {self.month_name}", ours),
             section(f"Changes to Your Packages by Others in {self.month_name}", others),
+            committed(f"Others' Changes Committed by Project Members in {self.month_name}",
+                      committed_by),
         ]
