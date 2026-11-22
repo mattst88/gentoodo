@@ -8,8 +8,10 @@ from pathlib import Path
 import pytest
 
 from gentoodo import __version__, cli, data
-from gentoodo.cli import collector_names, month, parse_args, process
+from gentoodo.cli import collector_names, link_pull_requests, month, parse_args, process
 from gentoodo.collectors.base import Collector, Item, Link, Section
+from gentoodo.collectors.outdated import OutdatedCollector
+from gentoodo.collectors.pull_requests import PullRequest, PullRequestsCollector
 from gentoodo.config import Config
 from gentoodo.maintainers import Maintainer
 
@@ -185,3 +187,15 @@ def test_data_options_conflict(args):
     with pytest.raises(SystemExit) as e:
         parse_args(["--config", "x", *args])
     assert e.value.code == 2
+
+
+def test_link_pull_requests():
+    config = Config(gentoo_repo=Path("/nonexistent"))
+    github, codeberg = PullRequestsCollector(config), PullRequestsCollector(config)
+    github.forge, codeberg.forge = "GitHub", "Codeberg"
+    github.prs = [PullRequest(1, "Bump", "https://x.org/1", [], ["a/b/b-2.ebuild"])]
+    codeberg.prs = None  # could not be read
+    outdated = OutdatedCollector(config)
+    link_pull_requests({"github": github, "codeberg": codeberg, "outdated": outdated})
+
+    assert outdated.added == {"a/b": [("2", Link("GitHub #1", "https://x.org/1"))]}

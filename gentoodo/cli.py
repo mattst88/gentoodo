@@ -14,6 +14,7 @@ from .collectors.codeberg_prs import CodebergPRsCollector
 from .collectors.github_prs import GitHubPRsCollector
 from .collectors.outdated import OutdatedCollector
 from .collectors.proxied import ProxiedMaintainersCollector, with_proxied
+from .collectors.pull_requests import PullRequestsCollector
 from .collectors.qa import QACollector
 from .collectors.redundant import RedundantVersionsCollector
 from .collectors.shortlog import ShortlogCollector
@@ -164,6 +165,15 @@ def from_data(config: Config, args: argparse.Namespace) -> None:
         write(config, maintainer, [s for _, s in sections], args.dry_run)
 
 
+def link_pull_requests(collectors: dict[str, Collector]) -> None:
+    """Give the outdated collector the pull requests of each forge read, so
+    that outdated packages link to the pull requests bumping them."""
+    if outdated := collectors.get("outdated"):
+        for c in collectors.values():
+            if isinstance(c, PullRequestsCollector) and c.prs is not None:
+                outdated.add_pull_requests(c.forge, c.prs)
+
+
 async def async_main(args: argparse.Namespace) -> None:
     config = load_config(args.config)
     if args.from_data:
@@ -203,6 +213,7 @@ async def async_main(args: argparse.Namespace) -> None:
         )
     except Exception as e:
         sys.exit(f"Failed to fetch data: {e}")
+    link_pull_requests(collectors)
 
     semaphore = asyncio.Semaphore(args.jobs)
     results = await asyncio.gather(*(
