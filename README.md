@@ -68,6 +68,16 @@ previous month and not in the last report before it, ignoring versions,
 line numbers and bracketed lists, and checks with no results in the
 earlier report.
 
+To look over what was written in a browser before sending it:
+
+    gentoodo-preview ~/.local/share/gentoodo/outbox
+    firefox ~/.local/share/gentoodo/outbox/preview/index.html
+
+Each email is written as an HTML page in `preview` in the directory
+given, or in the directory given with `--output`, with an `index.html`
+linking to them all. An email with no HTML part, written with
+`multipart = false`, is shown as its plain text.
+
 To send what was written, with the `sendmail` of the configuration:
 
     gentoodo --config config.toml --send-outbox
