@@ -8,11 +8,11 @@ listing:
 - their package versions that are ready for stabilization, from Gentoo's
   CI
 - the open GitHub and Codeberg pull requests that touch their packages
-- their redundant package versions, from Gentoo's CI
 - the commits to their packages in the previous month (for a project,
   split into commits by its members and by others)
 - the pkgcheck errors and warnings new in the previous month, from
   Gentoo's CI
+- their redundant package versions, from Gentoo's CI
 - the bugs assigned to them that were filed or closed in the previous
   month, and those still open, from the Gentoo Linux product of
   bugs.gentoo.org
@@ -56,8 +56,8 @@ instead, up to now if it is the current month.
 Unless `--no-pull` is given, the repository is first updated with
 `git fetch`, or with `git pull --ff-only` if it is not bare.
 `--collectors` limits the run to some of
-`outdated`, `stable_requests`, `github_prs`, `codeberg_prs`, `redundant`,
-`shortlog`, `qa`, `new_bugs` and `bugs`.
+`outdated`, `stable_requests`, `github_prs`, `codeberg_prs`, `shortlog`,
+`qa`, `redundant`, `new_bugs` and `bugs`.
 
 The pkgcheck reports of Gentoo's CI come from
 [qa-reports.gentoo.org](https://qa-reports.gentoo.org/), found by date

@@ -29,9 +29,9 @@ COLLECTORS = {
     "stable_requests": StableRequestsCollector,
     "github_prs": GitHubPRsCollector,
     "codeberg_prs": CodebergPRsCollector,
-    "redundant": RedundantVersionsCollector,
     "shortlog": ShortlogCollector,
     "qa": QACollector,
+    "redundant": RedundantVersionsCollector,
     "new_bugs": NewBugsCollector,
     "bugs": BugsCollector,
 }
