@@ -10,6 +10,9 @@ from pathlib import Path
 class Config:
     # None for a clone in cache_dir that is kept up to date
     gentoo_repo: Path | None = None
+    # Read by gentoodo-proxied only, if set
+    historical_repo: Path | None = None
+    guru_repo: Path | None = None
     output_dir: Path = Path("~/.local/share/gentoodo/outbox")
     cache_dir: Path = Path("~/.cache/gentoodo")
     from_address: str = "noreply@gentoo.org"
@@ -53,7 +56,7 @@ def load_config(path: str) -> Config:
     except TypeError as e:
         sys.exit(f"{path}: {e}")
 
-    for key in ("gentoo_repo", "output_dir", "cache_dir"):
+    for key in ("gentoo_repo", "historical_repo", "guru_repo", "output_dir", "cache_dir"):
         if (value := getattr(config, key)) is not None:
             setattr(config, key, Path(value).expanduser())
 

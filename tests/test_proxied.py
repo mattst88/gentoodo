@@ -3,7 +3,8 @@
 import asyncio
 import subprocess
 
-from gentoodo.collectors.proxied import ProxiedMaintainersCollector, with_proxied
+from gentoodo.collectors.proxied import (ProxiedMaintainersCollector, by_last_authored,
+                                         with_proxied)
 from gentoodo.config import Config
 from gentoodo.maintainers import find_last_commits, load_maintainers
 
@@ -54,3 +55,9 @@ def test_proxied_maintainers(tmp_path, git_env):
     ]
     [section] = asyncio.run(collect("dev@gentoo.org"))
     assert section.rows == [["2026-01-01", "new@example.org", "app-misc/foo: bump"]]
+
+
+def test_by_last_authored_orders_across_time_zones():
+    west, east = "2026-01-01T01:00:00-05:00 later", "2026-01-01T09:00:00+10:00 earlier"
+    # As strings, west sorts first, though it is the later of the two.
+    assert sorted([west, None, east], key=by_last_authored) == [None, east, west]

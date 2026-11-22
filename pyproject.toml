@@ -22,3 +22,4 @@ test = ["pytest"]
 [project.scripts]
 gentoodo = "gentoodo.cli:main"
 gentoodo-preview = "gentoodo.preview:main"
+gentoodo-proxied = "gentoodo.proxied_report:main"

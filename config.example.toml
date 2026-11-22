@@ -3,6 +3,12 @@
 # is made in cache_dir.
 #gentoo_repo = "/home/user/gentoo.git"
 
+# Read by gentoodo-proxied only. historical.git, the CVS history before
+# gentoo.git, tells when maintainers listed in gentoo.git's first commit were
+# added. guru.git is checked for their commits and packages there.
+#historical_repo = "/home/user/historical.git"
+#guru_repo = "/home/user/guru.git"
+
 # Where generated .eml files are written
 output_dir = "~/.local/share/gentoodo/outbox"
 

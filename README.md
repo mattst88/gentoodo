@@ -109,6 +109,36 @@ To copy every email to a mailing list, set `cc` in the `[general]`
 section of the configuration. The list receives the same emails as
 maintainers, including any restricted bugs the Bugzilla API key can see.
 
+## Proxied maintainers
+
+`gentoodo-proxied` is a separate command, run by hand when a proxy, such
+as proxy-maint, wants to look into its proxied maintainers. It prints
+its report and sends no email: a proxy's monthly email has only the
+table of last commits. It reports on each proxied maintainer, each one
+listed with `proxied="yes"` in gentoo.git:
+
+- when they last authored a commit, following `.mailmap`
+- the commit that added them to each of their packages, and why, following
+  changes of address under the same name back to the one they were added
+  under
+- other addresses with their name or local part that committed to their
+  packages more recently than they did, which may need `.mailmap` entries
+- their GURU packages and last commit there, with `guru_repo` set
+- their proxied maintainer tracker bug, the other open bugs assigned to
+  them, and when they last commented on Bugzilla, with a Bugzilla API key
+
+    gentoodo-proxied --config config.toml [--proxy EMAIL] [--never] [--json] [EMAIL ...]
+
+Without addresses, it reports on all of them. `--proxy` limits it to
+those a developer or project is listed as the proxy for, with
+`proxied="proxy"` or `proxied="maintainer-and-proxy"`, and to the
+packages it is their proxy on. `--never` limits it to those who never
+authored a commit. Those listed in gentoo.git's first commit were added
+in CVS, found with `historical_repo` set to a clone of historical.git. To
+make reading each package's history fast, it writes a commit-graph with
+changed-path Bloom filters into gentoo.git and historical.git, which
+takes a minute or two the first time.
+
 ## Limitations
 
 - Pull requests are matched on the first 100 files they change.
