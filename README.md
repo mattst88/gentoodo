@@ -26,6 +26,10 @@ listing:
 Stabilization and keywording commits and bugs are counted rather than
 listed.
 
+Packages without a maintainer are reported to
+maintainer-needed@gentoo.org, the assignee of their bugs. Its open bugs,
+of which there are thousands, are counted and linked rather than listed.
+
 Maintainers with nothing to report get no email. The emails are written
 as `.eml` files, and sent in a separate step. If GitHub or Codeberg
 cannot be read, the emails say so in place of its pull requests.

@@ -110,3 +110,20 @@ def test_arch_bugs_counted_and_linked(monkeypatch):
     assert larry.items == []
     assert larry.omitted == "1 stabilization and keywording bug not shown"
     assert larry.omitted_url == "https://bugs.gentoo.org/buglist.cgi?bug_id=4"
+
+
+def test_maintainer_needed_bugs_only_counted(monkeypatch):
+    async def search(api_key, **params):
+        return [bug(1, "maintainer-needed@gentoo.org", "2026-01-01T00:00:00Z"),
+                bug(2, "maintainer-needed@gentoo.org", "2026-01-02T00:00:00Z")]
+
+    monkeypatch.setattr(bugzilla, "search", search)
+    collector = BugsCollector(Config(gentoo_repo=Path("/nonexistent")))
+    asyncio.run(collector.setup())
+
+    [section] = asyncio.run(collector.collect(Maintainer("maintainer-needed@gentoo.org")))
+    assert section.items == []
+    assert section.omitted == "2 open bugs not shown"
+    query = parse_qs(urlsplit(section.omitted_url).query)
+    assert query["assigned_to"] == ["maintainer-needed@gentoo.org"]
+    assert query["bug_status"] == ["UNCONFIRMED", "CONFIRMED", "IN_PROGRESS"]

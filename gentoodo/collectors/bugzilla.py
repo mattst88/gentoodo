@@ -8,7 +8,7 @@ from urllib.error import HTTPError
 from urllib.parse import urlencode
 
 from .base import Collector, Item, Section, omitted_text
-from ..maintainers import Maintainer
+from ..maintainers import MAINTAINER_NEEDED, Maintainer
 from ..util import fetch
 
 URL = "https://bugs.gentoo.org"
@@ -16,6 +16,7 @@ PAGE_SIZE = 10000  # the most the server returns per request
 FIELDS = "id,summary,component,assigned_to,last_change_time"
 ARCH_COMPONENTS = {"Stabilization", "Keywording"}
 PRODUCT = "Gentoo Linux"  # package bugs
+OPEN = ["UNCONFIRMED", "CONFIRMED", "IN_PROGRESS"]
 
 
 def rest(api_key: str, path: str, **params) -> dict:
@@ -70,12 +71,17 @@ def section(title: str, bugs: list[dict],
 
 class BugsCollector(Collector):
     async def setup(self) -> None:
-        self.bugs = by_assignee(await search(
-            self.config.bugzilla_api_key,
-            status=["UNCONFIRMED", "CONFIRMED", "IN_PROGRESS"]))
+        self.bugs = by_assignee(await search(self.config.bugzilla_api_key, status=OPEN))
 
     async def collect(self, maintainer: Maintainer) -> list[Section]:
-        return [section("Open Bugs", self.bugs.get(maintainer.email, []),
+        bugs = self.bugs.get(maintainer.email, [])
+        if maintainer.email == MAINTAINER_NEEDED:
+            # Thousands, too many to list
+            query = urlencode({"assigned_to": MAINTAINER_NEEDED, "bug_status": OPEN,
+                               "product": PRODUCT}, doseq=True)
+            return [Section("Open Bugs", omitted=f"{len(bugs)} open bugs not shown",
+                            omitted_url=f"{URL}/buglist.cgi?{query}")]
+        return [section("Open Bugs", bugs,
                         lambda bug: f" (last changed {bug['last_change_time'][:10]})")]
 
 

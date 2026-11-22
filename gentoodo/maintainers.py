@@ -9,6 +9,9 @@ from pathlib import Path
 
 log = logging.getLogger(__name__)
 
+# Where the bugs of packages without a maintainer are assigned
+MAINTAINER_NEEDED = "maintainer-needed@gentoo.org"
+
 
 @dataclass
 class Maintainer:
@@ -83,7 +86,10 @@ def read_blobs(repo: Path, oids: list[bytes]) -> dict[bytes, bytes]:
 
 
 def load_maintainers(repo: Path) -> dict[str, Maintainer]:
-    """Map each maintainer's email to their packages, from metadata.xml."""
+    """Map each maintainer's email to their packages, from metadata.xml.
+
+    Packages without a maintainer are given to MAINTAINER_NEEDED.
+    """
     maintainers: dict[str, Maintainer] = {}
     for package, contents in _read_metadata(repo):
         try:
@@ -93,11 +99,12 @@ def load_maintainers(repo: Path) -> dict[str, Maintainer]:
             continue
 
         # Direct children only: <upstream> has <maintainer> elements too.
-        proxied, proxies = set(), []
+        proxied, proxies, found = set(), [], False
         for element in root.findall("maintainer"):
             email = (element.findtext("email") or "").strip().lower()
             if not email:
                 continue
+            found = True
             maintainer = maintainers.setdefault(email, Maintainer(email))
             maintainer.person |= element.get("type") == "person"
             maintainer.name = maintainer.name or (element.findtext("name") or "").strip()
@@ -111,6 +118,9 @@ def load_maintainers(repo: Path) -> dict[str, Maintainer]:
         for proxy in proxies:
             for email in sorted(proxied):
                 proxy.proxied_maintainers.setdefault(email, []).append(package)
+        if not found:
+            needed = maintainers.setdefault(MAINTAINER_NEEDED, Maintainer(MAINTAINER_NEEDED))
+            needed.packages.append(package)
 
     return dict(sorted(maintainers.items()))
 

@@ -38,6 +38,7 @@ def test_load_maintainers(tmp_path, git_env):
     add_package(tmp_path, "acct-group/emacs", """
         <maintainer type="project"><email>emacs@gentoo.org</email></maintainer>""")
     add_package(tmp_path, "app-misc/orphan", "<!-- maintainer-needed -->")
+    add_package(tmp_path, "app-misc/unnamed", "<maintainer><name>Nobody</name></maintainer>")
     add_package(tmp_path, "app-editors/broken", "<maintainer>")
     # Not committed, so not read
     (tmp_path / "app-misc/orphan/metadata.xml").write_text(METADATA.format(
@@ -47,12 +48,17 @@ def test_load_maintainers(tmp_path, git_env):
     maintainers = load_maintainers(tmp_path)
 
     assert list(maintainers) == [
-        "emacs@gentoo.org", "somebody@example.com", "xemacs@gentoo.org"]
+        "emacs@gentoo.org", "maintainer-needed@gentoo.org", "somebody@example.com",
+        "xemacs@gentoo.org"]
     assert maintainers["emacs@gentoo.org"].packages == [
         "acct-group/emacs", "app-editors/emacs"]
     assert not maintainers["emacs@gentoo.org"].person
     assert maintainers["xemacs@gentoo.org"].packages == ["app-editors/xemacs"]
     assert maintainers["somebody@example.com"].person
+    # Neither a comment nor a maintainer without an email is a maintainer
+    assert maintainers["maintainer-needed@gentoo.org"].packages == [
+        "app-misc/orphan", "app-misc/unnamed"]
+    assert not maintainers["maintainer-needed@gentoo.org"].person
 
 
 def commit(repo, subject, author, committer, date):
