@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-from gentoodo.collectors.base import Item
+from gentoodo.collectors.base import package_link
 from gentoodo.collectors.outdated import parse_feed
 
 FEED = b"""<?xml version="1.0" encoding="UTF-8"?>
@@ -20,8 +20,6 @@ FEED = b"""<?xml version="1.0" encoding="UTF-8"?>
 
 def test_parse_feed():
     assert parse_feed(FEED) == [
-        Item("dev-libs/libevdev", ": 1.13.7 -> 1.14.0",
-             "https://packages.gentoo.org/packages/dev-libs/libevdev"),
-        Item("x11-libs/libdrm", ": Something else.",
-             "https://packages.gentoo.org/packages/x11-libs/libdrm"),
+        [package_link("dev-libs/libevdev"), "1.13.7", "1.14.0"],
+        [package_link("x11-libs/libdrm"), "Something else.", ""],
     ]

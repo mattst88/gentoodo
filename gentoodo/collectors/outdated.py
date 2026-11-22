@@ -7,7 +7,7 @@ import xml.etree.ElementTree as ET
 from urllib.error import HTTPError
 from urllib.parse import quote
 
-from .base import Collector, Item, Section
+from .base import Cell, Collector, Section, package_link
 from ..maintainers import Maintainer
 from ..util import fetch
 
@@ -17,17 +17,21 @@ URL = "https://packages.gentoo.org"
 ATOM = "{http://www.w3.org/2005/Atom}"
 SUMMARY_RE = re.compile(
     r"Version (.+?) is available, while the latest version in the Gentoo tree is (.+)\.")
+COLUMNS = ["Package", "Gentoo version", "Upstream version"]
 
 
-def parse_feed(data: bytes) -> list[Item]:
-    items = []
+def parse_feed(data: bytes) -> list[list[Cell]]:
+    """A row of each package in the feed, with the summary in place of the
+    versions where it does not give them."""
+    rows = []
     for entry in ET.fromstring(data).iter(f"{ATOM}entry"):
         package = entry.findtext(f"{ATOM}title", "")
         summary = entry.findtext(f"{ATOM}summary", "")
         if match := SUMMARY_RE.search(summary):
-            summary = f"{match[2]} -> {match[1]}"
-        items.append(Item(package, f": {summary}", f"{URL}/packages/{package}"))
-    return items
+            rows.append([package_link(package), match[2], match[1]])
+        else:
+            rows.append([package_link(package), summary, ""])
+    return rows
 
 
 class OutdatedCollector(Collector):
@@ -43,7 +47,7 @@ class OutdatedCollector(Collector):
                 raise
             self.not_found.append(maintainer.email)
             return []
-        return [Section("Outdated Packages", parse_feed(data))]
+        return [Section("Outdated Packages", columns=COLUMNS, rows=parse_feed(data))]
 
     def finish(self) -> None:
         # The site does not know these maintainers, so they may no longer

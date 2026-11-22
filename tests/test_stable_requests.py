@@ -4,7 +4,8 @@ import asyncio
 from pathlib import Path
 
 from gentoodo.collectors import stable_requests
-from gentoodo.collectors.stable_requests import StableRequestsCollector
+from gentoodo.collectors.base import package_link
+from gentoodo.collectors.stable_requests import COLUMNS, StableRequestsCollector
 from gentoodo.config import Config
 from gentoodo.maintainers import Maintainer
 
@@ -32,6 +33,5 @@ def test_stable_requests(monkeypatch):
     [section] = asyncio.run(collector.collect(Maintainer("x11@gentoo.org",
                                                         packages=["x11-libs/libdrm"])))
 
-    assert [(item.ref, item.text) for item in section.items] == [
-        ("x11-libs/libdrm-2.4.124", " (120 days)"),
-    ]
+    assert section.columns == COLUMNS
+    assert section.rows == [[package_link("x11-libs/libdrm"), "2.4.124", "120"]]
