@@ -60,13 +60,18 @@ async def report(cache_dir: Path, before: datetime | None = None) -> list[dict[s
         return _reports[commit]
 
 
+def package_of(result: dict[str, str]) -> str:
+    """The category and package of `result`, such as app-misc/foo."""
+    return f"{result['category']}/{result['package']}"
+
+
 def by_package(results: Iterable[dict[str, str]], text: Callable[[dict[str, str]], str],
                page: str = "") -> dict[str, list[Item]]:
     """Group results by package, linking to `page` of the package on
     packages.gentoo.org."""
     grouped: dict[str, list[Item]] = defaultdict(list)
     for result in results:
-        package = f"{result['category']}/{result['package']}"
+        package = package_of(result)
         ref = f"{package}-{result['version']}" if "version" in result else package
         grouped[package].append(Item(
             ref, text(result), f"https://packages.gentoo.org/packages/{package}{page}"))

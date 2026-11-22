@@ -3,6 +3,8 @@
 from dataclasses import dataclass, field
 from datetime import date
 
+from pkgcore.ebuild.cpv import VersionedCPV
+
 from ..config import Config
 from ..maintainers import Maintainer
 from ..util import previous_month
@@ -33,6 +35,15 @@ def cell_text(cell: Cell) -> str:
     if isinstance(cell, Link):
         return cell.text
     return ", ".join(link.text for link in cell)
+
+
+def package_link(package: str) -> Link:
+    return Link(package, f"https://packages.gentoo.org/packages/{package}")
+
+
+def package_version(package: str, version: str) -> VersionedCPV:
+    """`version` of `package`, which compares as versions do."""
+    return VersionedCPV(f"{package}-{version}")
 
 
 @dataclass
@@ -92,3 +103,15 @@ class PackageCollector(Collector):
             for item in self.items.get(package, ())
         )
         return [Section(self.title, list(items), urls_in_text=self.urls_in_text)]
+
+
+class PackageTableCollector(Collector):
+    """A collector of table rows by package, set in `setup()`."""
+    title: str
+    columns: list[str]
+    rows: dict[str, list[list[Cell]]]
+
+    async def collect(self, maintainer: Maintainer) -> list[Section]:
+        rows = [row for package in sorted(set(maintainer.packages))
+                for row in self.rows.get(package, ())]
+        return [Section(self.title, columns=self.columns, rows=rows)]
