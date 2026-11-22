@@ -18,31 +18,30 @@ ARCH_COMPONENTS = {"Stabilization", "Keywording"}
 PRODUCT = "Gentoo Linux"  # package bugs
 
 
+def rest(api_key: str, path: str, **params) -> dict:
+    """GET `path` from the REST API, raising RuntimeError with Bugzilla's
+    message if it gives one."""
+    # bugs.gentoo.org ignores the X-BUGZILLA-API-KEY header.
+    query = urlencode({**params, "Bugzilla_api_key": api_key}, doseq=True)
+    try:
+        return json.loads(fetch(f"{URL}/rest/{path}?{query}"))
+    except HTTPError as e:
+        try:
+            message = json.loads(e.read())["message"]
+        except (ValueError, KeyError):
+            raise e from None
+        raise RuntimeError(f"Bugzilla: {message}") from None
+
+
 async def search(api_key: str | None, **params: str | list[str]) -> list[dict]:
     if not api_key:
         raise RuntimeError("no Bugzilla API key, set secret_file in [bugzilla]")
 
     bugs: list[dict] = []
     while True:
-        query = urlencode({
-            **params,
-            "product": PRODUCT,
-            "include_fields": FIELDS,
-            "order": "bug_id",
-            "limit": PAGE_SIZE,
-            "offset": len(bugs),
-            # bugs.gentoo.org ignores the X-BUGZILLA-API-KEY header.
-            "Bugzilla_api_key": api_key,
-        }, doseq=True)
-        try:
-            data = await asyncio.to_thread(fetch, f"{URL}/rest/bug?{query}")
-        except HTTPError as e:
-            try:
-                message = json.loads(e.read())["message"]
-            except (ValueError, KeyError):
-                raise e from None
-            raise RuntimeError(f"Bugzilla: {message}") from None
-        page = json.loads(data)["bugs"]
+        page = (await asyncio.to_thread(
+            rest, api_key, "bug", **params, product=PRODUCT, include_fields=FIELDS,
+            order="bug_id", limit=PAGE_SIZE, offset=len(bugs)))["bugs"]
         bugs += page
         if len(page) < PAGE_SIZE:
             return bugs
