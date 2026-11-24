@@ -3,25 +3,27 @@
 from datetime import datetime
 
 from .base import Collector, Section
-from ..maintainers import Maintainer
+from ..maintainers import Commit, Maintainer
 
 COLUMNS = ["Last authored", "Maintainer", "Commit"]
 
 
-def by_last_authored(last_authored: str | None) -> tuple[bool, datetime]:
+def by_last_authored(last_authored: Commit | None) -> tuple[bool, datetime]:
     """A sort key: those who never authored a commit first, then oldest
     first, comparing times across time zones."""
     if not last_authored:
         return False, datetime.min
-    return True, datetime.fromisoformat(last_authored.partition(" ")[0])
+    return True, datetime.fromisoformat(last_authored.date)
 
 
 def table(maintainers: list[Maintainer]) -> list[list[str]]:
     """Each maintainer's last authored commit, sorted by by_last_authored()."""
     rows = []
     for m in sorted(maintainers, key=lambda m: (by_last_authored(m.last_authored), m.email)):
-        when, _, subject = (m.last_authored or "").partition(" ")
-        rows.append([when[:10] if when else "never", m.email, subject])
+        if c := m.last_authored:
+            rows.append([c.day, m.email, c.subject])
+        else:
+            rows.append(["never", m.email, ""])
     return rows
 
 

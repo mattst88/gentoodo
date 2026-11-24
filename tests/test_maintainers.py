@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 import os
+import re
 import subprocess
 
 from gentoodo.maintainers import Maintainer, find_last_commits, load_maintainers
@@ -86,11 +87,16 @@ def test_find_last_commits(tmp_path, git_env):
     mapped = Maintainer("new@example.com", person=True)
     find_last_commits(tmp_path, [dev, idle, project, mapped])
 
-    assert dev.last_authored == "2026-01-02T00:00:00+01:00 second"
-    assert dev.last_committed == "2026-01-01T00:00:00+01:00 first"
+    assert (dev.last_authored.date, dev.last_authored.subject) == (
+        "2026-01-02T00:00:00+01:00", "second")
+    assert (dev.last_committed.date, dev.last_committed.subject) == (
+        "2026-01-01T00:00:00+01:00", "first")
+    assert re.fullmatch(r"[0-9a-f]{40}", dev.last_authored.sha)
+    assert dev.last_authored.sha != dev.last_committed.sha
     assert idle.last_authored is None and idle.last_committed is None
     assert project.last_committed is None
-    assert mapped.last_authored == "2026-01-04T00:00:00+01:00 fourth"
+    assert (mapped.last_authored.date, mapped.last_authored.subject) == (
+        "2026-01-04T00:00:00+01:00", "fourth")
 
 
 def test_load_maintainers_proxied(tmp_path, git_env):

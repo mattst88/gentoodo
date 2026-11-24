@@ -13,7 +13,7 @@ from gentoodo.collectors.base import Collector, Item, Link, Section
 from gentoodo.collectors.outdated import OutdatedCollector
 from gentoodo.collectors.pull_requests import PullRequest, PullRequestsCollector
 from gentoodo.config import Config
-from gentoodo.maintainers import Maintainer
+from gentoodo.maintainers import Commit, Maintainer
 
 
 class FakeCollector(Collector):
@@ -110,11 +110,15 @@ OUTDATED = Section("Outdated Packages", columns=["Package", "Bump PR"],
 PROXIED = Section("Proxied Maintainers", columns=["When", "Who"], rows=[["never", "a@b.org"]])
 
 
+AUTHORED = Commit("2026-11-02T10:00:00+01:00", "0123456789abcdef0123456789abcdef01234567",
+                  "x11-libs/libdrm: add 2.4.130")
+
+
 def save(tmp_path):
     path = tmp_path / "data" / "november.json"
     # Not in the order of COLLECTORS
     data.save(path, [
-        (Maintainer("x11@gentoo.org", packages=["x11-libs/libdrm"], last_authored="2026-11-02"),
+        (Maintainer("x11@gentoo.org", packages=["x11-libs/libdrm"], last_authored=AUTHORED),
          [("redundant", REDUNDANT), ("qa", QA), ("bugs", BUGS), ("outdated", OUTDATED),
           ("proxied", PROXIED)]),
         (Maintainer("larry@gentoo.org"), [("bugs", Section("Open Bugs"))]),
@@ -128,14 +132,14 @@ def test_data_round_trip(tmp_path):
     [(x11, sections), (larry, _)] = data.load(path)
 
     assert x11 == Maintainer("x11@gentoo.org", packages=["x11-libs/libdrm"],
-                             last_authored="2026-11-02")
+                             last_authored=AUTHORED)
     assert sections == [("redundant", REDUNDANT), ("qa", QA), ("bugs", BUGS),
                         ("outdated", OUTDATED), ("proxied", PROXIED)]
     assert larry.email == "larry@gentoo.org"
 
 
-@pytest.mark.parametrize("text", ["", "[]", '{"format": 2}', '{"format": 1}',
-                                  '{"format": 1, "maintainers": [{"maintainer": {}}]}'])
+@pytest.mark.parametrize("text", ["", "[]", '{"format": 1}', '{"format": 2}',
+                                  '{"format": 2, "maintainers": [{"maintainer": {}}]}'])
 def test_data_load_invalid(tmp_path, text):
     (tmp_path / "x.json").write_text(text)
     with pytest.raises(ValueError):
@@ -163,7 +167,8 @@ def test_from_data(tmp_path, monkeypatch):
     # In the order of COLLECTORS now
     assert (text.index("New QA Warnings") < text.index("Redundant Versions")
             < text.index("Open Bugs"))
-    assert "Last commit authored: 2026-11-02" in text
+    assert ("Last commit authored: 2026-11-02T10:00:00+01:00 0123456789ab "
+            "x11-libs/libdrm: add 2.4.130\n") in text
 
 
 def test_from_data_collectors(tmp_path, monkeypatch):

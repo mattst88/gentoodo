@@ -7,6 +7,7 @@ import subprocess
 from gentoodo import proxied_report
 from gentoodo.proxied_report import Report, bugzilla_status, find_additions, find_candidates
 from gentoodo.config import Config
+from gentoodo.maintainers import Commit
 
 from test_maintainers import METADATA, commit
 
@@ -146,7 +147,7 @@ def test_find_candidates(tmp_path, git_env):
 
     # Not a candidate if the maintainer committed more recently
     report = Report("someone@example.com", "Some Body", ["app-misc/foo"],
-                    last_authored="2024-06-01T00:00:00Z newer")
+                    last_authored=Commit("2024-06-01T00:00:00Z", "0" * 40, "newer"))
     find_candidates(repo, [report])
     assert not report.candidates
 

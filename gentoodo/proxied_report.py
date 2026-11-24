@@ -21,7 +21,7 @@ from .cli import positive_int
 from .collectors.bugzilla import URL as BUGZILLA, rest as bugzilla
 from .collectors.proxied import by_last_authored
 from .config import Config, load_config
-from .maintainers import Maintainer, _git, find_last_commits, load_maintainers, read_blobs
+from .maintainers import Commit, Maintainer, _git, find_last_commits, load_maintainers, read_blobs
 
 log = logging.getLogger(__name__)
 
@@ -83,11 +83,11 @@ class Report:
     email: str
     name: str
     packages: list[str]
-    last_authored: str | None = None
+    last_authored: Commit | None = None
     additions: list[Addition] = field(default_factory=list)
     candidates: list[Candidate] = field(default_factory=list)
     guru_packages: list[str] = field(default_factory=list)
-    guru_last_authored: str | None = None
+    guru_last_authored: Commit | None = None
     tracker_bugs: list[dict] = field(default_factory=list)
     assigned_bugs: list[dict] = field(default_factory=list)
     last_comment: tuple[str, int] | None = None  # date, bug
@@ -228,7 +228,7 @@ def find_candidates(repo: Path, reports: list[Report]) -> None:
         for email in sorted(found - {report.email}):
             own = sum(by_package[email][p] for p in report.packages)
             if own and (report.last_authored is None
-                        or last[email] > report.last_authored[:10]):
+                        or last[email] > report.last_authored.day):
                 report.candidates.append(Candidate(email, sorted(names[email]),
                                                    commits[email], last[email], own))
 

@@ -14,6 +14,21 @@ MAINTAINER_NEEDED = "maintainer-needed@gentoo.org"
 
 
 @dataclass
+class Commit:
+    # ISO 8601, with the committer's or author's time zone
+    date: str
+    sha: str
+    subject: str
+
+    @property
+    def day(self) -> str:
+        return self.date[:10]
+
+    def __str__(self) -> str:
+        return f"{self.date} {self.sha[:12]} {self.subject}"
+
+
+@dataclass
 class Maintainer:
     email: str
     person: bool = False
@@ -25,9 +40,9 @@ class Maintainer:
     # For a proxy, the maintainers listed with proxied="yes" where it is their
     # proxy, and those packages
     proxied_maintainers: dict[str, list[str]] = field(default_factory=dict)
-    # Date and subject of the person's most recent commits
-    last_authored: str | None = None
-    last_committed: str | None = None
+    # The person's most recent commits
+    last_authored: Commit | None = None
+    last_committed: Commit | None = None
 
 
 def _git(repo: Path, *args: str, input: bytes | None = None,
@@ -135,17 +150,17 @@ def find_last_commits(repo: Path, maintainers: list[Maintainer]) -> None:
     # One pass over the history for everyone. Those who never committed
     # under their metadata.xml address, or one .mailmap maps to it, make
     # this read all of it.
-    command = ["git", "-C", str(repo), "log", "--format=%aE%x00%cE%x00%aI%x00%cI%x00%s"]
+    command = ["git", "-C", str(repo), "log", "--format=%aE%x00%cE%x00%aI%x00%cI%x00%H%x00%s"]
     with subprocess.Popen(command, stdout=subprocess.PIPE,
                           text=True, errors="replace") as proc:
         for line in proc.stdout:
-            author, committer, authored, committed, subject = (
-                line.rstrip("\n").split("\0", 4))
+            author, committer, authored, committed, sha, subject = (
+                line.rstrip("\n").split("\0", 5))
             if (m := people.get(author.lower())) and m.last_authored is None:
-                m.last_authored = f"{authored} {subject}"
+                m.last_authored = Commit(authored, sha, subject)
                 missing -= 1
             if (m := people.get(committer.lower())) and m.last_committed is None:
-                m.last_committed = f"{committed} {subject}"
+                m.last_committed = Commit(committed, sha, subject)
                 missing -= 1
             if not missing:
                 proc.terminate()

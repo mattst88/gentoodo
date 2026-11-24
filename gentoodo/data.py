@@ -9,9 +9,9 @@ from dataclasses import asdict
 from pathlib import Path
 
 from .collectors.base import Cell, Item, Link, Section
-from .maintainers import Maintainer
+from .maintainers import Commit, Maintainer
 
-FORMAT = 1
+FORMAT = 2
 
 # Each maintainer, with the sections found for them, each with the name of
 # the collector that found it
@@ -41,6 +41,13 @@ def cell(value: str | dict | list) -> Cell:
     return value
 
 
+def maintainer(value: dict) -> Maintainer:
+    """A maintainer as `save()` wrote it."""
+    commits = {key: Commit(**value[key])
+               for key in ("last_authored", "last_committed") if value.get(key)}
+    return Maintainer(**value | commits)
+
+
 def load(path: Path) -> Results:
     """Read what `save()` wrote, raising ValueError if it cannot be."""
     try:
@@ -48,7 +55,7 @@ def load(path: Path) -> Results:
         if data.get("format") != FORMAT:
             raise ValueError(f"format {data.get('format')}, not {FORMAT}")
         return [
-            (Maintainer(**entry["maintainer"]),
+            (maintainer(entry["maintainer"]),
              [(section.pop("collector"),
                Section(**section | {
                    "items": [Item(**i) for i in section["items"]],
