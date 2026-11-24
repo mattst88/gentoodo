@@ -12,7 +12,7 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from .collectors.base import Cell, Section, cell_text
 from .config import Config
-from .maintainers import Maintainer
+from .maintainers import Commit, Maintainer
 
 log = logging.getLogger(__name__)
 
@@ -37,7 +37,26 @@ def aligned(rows: list[list[Cell]], columns: list[str] | None = None) -> str:
         for row in rows)
 
 
+# A ::gentoo commit's page, by its full SHA1
+GITWEB = "https://gitweb.gentoo.org/repo/gentoo.git/commit/?id="
+
+
+def last_commits(maintainer: Maintainer) -> list[tuple[str, Commit]]:
+    """The maintainer's last committed and authored commits, each with its
+    label, leaving out any they have not made."""
+    return [(label, c) for label, c in (("Committed", maintainer.last_committed),
+                                        ("Authored", maintainer.last_authored)) if c]
+
+
+def commit_rows(commits: list[tuple[str, Commit]]) -> list[list[str]]:
+    """`commits` as rows of text for aligned()."""
+    return [[label, c.day, f"{c.subject} ({c.sha[:12]})"] for label, c in commits]
+
+
 env.filters["aligned"] = aligned
+env.filters["last_commits"] = last_commits
+env.filters["commit_rows"] = commit_rows
+env.globals["GITWEB"] = GITWEB
 
 
 def render(config: Config, maintainer: Maintainer,

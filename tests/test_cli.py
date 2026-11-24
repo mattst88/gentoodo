@@ -167,8 +167,9 @@ def test_from_data(tmp_path, monkeypatch):
     # In the order of COLLECTORS now
     assert (text.index("New QA Warnings") < text.index("Redundant Versions")
             < text.index("Open Bugs"))
-    assert ("Last commit authored: 2026-11-02T10:00:00+01:00 0123456789ab "
-            "x11-libs/libdrm: add 2.4.130\n") in text
+    assert ("Last Commit  Date        Commit\n"
+            "-----------  ----------  -------------------------------------------\n"
+            "Authored     2026-11-02  x11-libs/libdrm: add 2.4.130 (0123456789ab)\n") in text
 
 
 def test_from_data_collectors(tmp_path, monkeypatch):

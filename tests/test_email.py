@@ -6,7 +6,7 @@ from pathlib import Path
 from gentoodo.collectors.base import Item, Link, Section
 from gentoodo.config import Config
 from gentoodo.email import render, send_outbox
-from gentoodo.maintainers import Maintainer
+from gentoodo.maintainers import Commit, Maintainer
 
 CONFIG = Config(gentoo_repo=Path("/nonexistent"))
 MAINTAINER = Maintainer("x11@gentoo.org", packages=["x11-libs/libdrm"])
@@ -86,6 +86,18 @@ def test_html_alternative():
             '(<a href="https://bugs.gentoo.org/buglist.cgi?bug_id=3">'
             '1 stabilization and keywording bug not shown</a>)</p>') in html.get_content()
 
+
+def test_last_commits_html():
+    maintainer = replace(MAINTAINER, last_authored=Commit(
+        "2026-11-02T10:00:00+01:00", "0123456789abcdef0123456789abcdef01234567",
+        "x11-libs/libdrm: add <2.4.130>"))
+    _, html = render(CONFIG, maintainer, []).iter_parts()
+
+    assert ("<tr><th>Last Commit</th><th>Date</th><th>Commit</th></tr>\n"
+            "<tr><td>Authored</td><td>2026-11-02</td><td>x11-libs/libdrm: add &lt;2.4.130&gt; "
+            '(<a href="https://gitweb.gentoo.org/repo/gentoo.git/commit/'
+            '?id=0123456789abcdef0123456789abcdef01234567">0123456789ab</a>)</td></tr>\n'
+            "</table>") in html.get_content()
 
 def test_long_line_encoded():
     sections = [Section("Open Bugs", [Item("Bug #1", ": " + "x" * 1000)])]

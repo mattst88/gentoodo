@@ -22,15 +22,14 @@ td{border-bottom:1px solid #f0f0f0}
 <p>Hi {{ maintainer.email }},</p>
 <p>Here is your monthly Gentoo package maintenance summary.
 You maintain <strong>{{ maintainer.packages | length }}</strong> package{{ "s" if maintainer.packages | length != 1 }}.</p>
-{% if maintainer.last_authored or maintainer.last_committed %}
-<p class="meta">
-{% if maintainer.last_authored %}
-Last commit authored: {{ maintainer.last_authored }}<br>
-{% endif %}
-{% if maintainer.last_committed %}
-Last commit committed: {{ maintainer.last_committed }}
-{% endif %}
-</p>
+{% set commits = maintainer | last_commits %}
+{% if commits %}
+<table>
+<tr><th>Last Commit</th><th>Date</th><th>Commit</th></tr>
+{% for label, commit in commits %}
+<tr><td>{{ label }}</td><td>{{ commit.day }}</td><td>{{ commit.subject }} (<a href="{{ GITWEB }}{{ commit.sha }}">{{ commit.sha[:12] }}</a>)</td></tr>
+{% endfor %}
+</table>
 {% endif %}
 {% for section in sections %}
 {% if section.text or section.rows or not section.items %}
