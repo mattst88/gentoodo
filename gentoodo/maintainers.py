@@ -11,6 +11,8 @@ log = logging.getLogger(__name__)
 
 # Where the bugs of packages without a maintainer are assigned
 MAINTAINER_NEEDED = "maintainer-needed@gentoo.org"
+# A maintainer of every proxied package
+PROXY_MAINT = "proxy-maint@gentoo.org"
 
 
 @dataclass

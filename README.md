@@ -21,7 +21,8 @@ listing:
 - their redundant package versions, from Gentoo's CI
 - the bugs assigned to them that were filed or closed in the previous
   month, and those still open, from the Gentoo Linux product of
-  bugs.gentoo.org
+  bugs.gentoo.org, including those assigned to a co-maintainer that CC
+  them and name one of their packages in the summary
 
 Stabilization and keywording commits and bugs are counted rather than
 listed.
@@ -29,6 +30,8 @@ listed.
 Packages without a maintainer are reported to
 maintainer-needed@gentoo.org, the assignee of their bugs. Its open bugs,
 of which there are thousands, are counted and linked rather than listed.
+So are proxy-maint@gentoo.org's open, filed, and closed bugs, as it is
+CCed on the bugs of every proxied package.
 
 Maintainers with nothing to report get no email. The emails are written
 as `.eml` files, and sent in a separate step. If GitHub or Codeberg
