@@ -99,11 +99,13 @@ class OutdatedCollector(Collector):
             return []
         rows = parse_feed(data)
         if self.added is None:
-            return [Section("Outdated Packages", columns=COLUMNS, rows=rows)]
+            return [Section("Outdated Packages", columns=COLUMNS, rows=rows,
+                            package_count=True)]
         for row in rows:
             package = row[0].text
             row.append(bumps(package, row[1], self.added.get(package, [])))
-        return [Section("Outdated Packages", columns=[*COLUMNS, PR_COLUMN], rows=rows)]
+        return [Section("Outdated Packages", columns=[*COLUMNS, PR_COLUMN], rows=rows,
+                        package_count=True)]
 
     def finish(self) -> None:
         # The site does not know these maintainers, so they may no longer

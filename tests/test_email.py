@@ -229,3 +229,26 @@ def test_links_html():
 <tr><td><a href="https://p.org/foo">app-misc/foo</a></td><td><a href="https://x.org/1">GitHub #1</a>, <a href="https://y.org/2">Codeberg #2</a></td></tr>
 <tr><td><a href="https://p.org/b?x=1&amp;y=2">app-misc/&lt;b&gt;</a></td><td></td></tr>
 """ in html.get_content()
+
+
+# app-misc/foo has two rows, one for each version
+PACKAGES = Section("Redundant Versions", columns=["Package", "Version"],
+                   rows=[[Link("app-misc/foo", "https://p.org/foo"), "1"],
+                         [Link("app-misc/foo", "https://p.org/foo"), "2"],
+                         [Link("app-misc/bar", "https://p.org/bar"), "3"]],
+                   package_count=True)
+
+
+def test_package_count_text():
+    msg = render(replace(CONFIG, multipart=False), MAINTAINER, [PACKAGES, TABLE])
+
+    text = msg.get_content()
+    assert "== Redundant Versions (2) ==" in text
+    assert "== Proxied Maintainers by Last Authored Commit ==" in text
+
+
+def test_package_count_html():
+    _, html = render(CONFIG, MAINTAINER, [PACKAGES, TABLE]).iter_parts()
+
+    assert "<h2>Redundant Versions (2)</h2>" in html.get_content()
+    assert "<h2>Proxied Maintainers by Last Authored Commit</h2>" in html.get_content()

@@ -58,10 +58,17 @@ class Section:
     notice: bool = False  # not worth an email on its own
     omitted: str = ""  # what was left out, shown after the items or text
     omitted_url: str = ""  # where to see what was left out
+    # Show the number of packages, those in the first column, by the title
+    package_count: bool = False
 
     @property
     def content(self) -> bool:
         return bool(self.items or self.text or self.rows)
+
+    @property
+    def packages(self) -> int:
+        """The number of packages in the table's first column."""
+        return len({cell_text(row[0]) for row in self.rows})
 
 
 def omitted_text(count: int, what: str) -> str:
@@ -114,4 +121,5 @@ class PackageTableCollector(Collector):
     async def collect(self, maintainer: Maintainer) -> list[Section]:
         rows = [row for package in sorted(set(maintainer.packages))
                 for row in self.rows.get(package, ())]
-        return [Section(self.title, columns=self.columns, rows=rows)]
+        return [Section(self.title, columns=self.columns, rows=rows,
+                        package_count=True)]

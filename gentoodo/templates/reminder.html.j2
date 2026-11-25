@@ -33,7 +33,7 @@ You maintain <strong>{{ maintainer.packages | length }}</strong> package{{ "s" i
 {% endif %}
 {% for section in sections %}
 {% if section.text or section.rows or not section.items %}
-<h2>{{ section.title }}</h2>
+<h2>{{ section.title }}{% if section.package_count %} ({{ section.packages }}){% endif %}</h2>
 {% if section.text %}
 <pre>{{ section.text }}</pre>
 {% endif %}

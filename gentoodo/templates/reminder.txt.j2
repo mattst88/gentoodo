@@ -11,7 +11,7 @@ You maintain {{ maintainer.packages | length }} package{{ "s" if maintainer.pack
 {% for section in sections %}
 
 {% if section.text or section.rows or not section.items %}
-== {{ section.title }} ==
+== {{ section.title }}{% if section.package_count %} ({{ section.packages }}){% endif %} ==
 {% if section.text %}
 {{ section.text }}
 {% endif %}
