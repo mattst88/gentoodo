@@ -3,6 +3,9 @@
 import gzip
 import io
 from datetime import date
+from http.client import IncompleteRead, RemoteDisconnected
+
+import pytest
 
 from gentoodo import util
 from gentoodo.util import fetch, fetch_with_headers, month_days, previous_month, redact
@@ -52,3 +55,21 @@ def test_fetch_with_headers(monkeypatch):
     monkeypatch.setattr(util, "urlopen",
                         lambda request, timeout: Response(gzip.compress(b"data"), headers))
     assert fetch_with_headers("https://example.org/") == (b"data", headers)
+
+
+@pytest.mark.parametrize("error", [
+    RemoteDisconnected("Remote end closed connection without response"),
+    ConnectionResetError("Connection reset by peer"),
+    IncompleteRead(b"partial"),
+])
+def test_fetch_retries_dropped_connections(monkeypatch, error):
+    errors = [error]
+
+    def urlopen(request, timeout):
+        if errors:
+            raise errors.pop()
+        return Response(b"data", {})
+
+    monkeypatch.setattr(util, "urlopen", urlopen)
+    monkeypatch.setattr(util.time, "sleep", lambda delay: None)
+    assert fetch("https://example.org/") == b"data"

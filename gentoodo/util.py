@@ -8,6 +8,7 @@ import re
 import time
 from collections.abc import Mapping
 from datetime import UTC, date, datetime, timedelta
+from http.client import HTTPException
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
@@ -74,7 +75,9 @@ def fetch_with_headers(url: str) -> tuple[bytes, Mapping[str, str]]:
     for delay in (1, 4):
         try:
             return _get(url)
-        except (URLError, TimeoutError) as e:
+        # urlopen() does not wrap errors reading the response, such as
+        # RemoteDisconnected
+        except (URLError, TimeoutError, ConnectionError, HTTPException) as e:
             if isinstance(e, HTTPError) and e.code < 500:
                 raise
             log.warning("%s: %s, retrying in %ds", redact(url), e, delay)
