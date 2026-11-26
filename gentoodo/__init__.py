@@ -2,4 +2,4 @@
 
 """Generate reminder emails for Gentoo package maintainers."""
 
-__version__ = "0.1.3"
+__version__ = "0.2.0"
